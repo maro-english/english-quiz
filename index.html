@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英語フレーズクイズ</title>
+<style>
+  :root {
+    --primary: #4F46E5;
+    --primary-dark: #3730A3;
+    --success: #059669;
+    --success-bg: #ECFDF5;
+    --error: #DC2626;
+    --error-bg: #FEF2F2;
+    --bg: #F8FAFC;
+    --card: #FFFFFF;
+    --text: #1E293B;
+    --muted: #64748B;
+    --border: #E2E8F0;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+    color: var(--primary);
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+    gap: 8px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { background: #CBD5E1; }
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+  .btn-danger {
+    background: var(--error);
+    color: white;
+  }
+  .btn-sm {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    border-radius: 10px;
+  }
+  .btn-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-group .btn {
+    flex: 1;
+    min-width: 80px;
+  }
+  .toggle-btn {
+    flex: 1;
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: white;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text);
+  }
+  .toggle-btn.active {
+    border-color: var(--primary);
+    background: #EEF2FF;
+    color: var(--primary);
+    font-weight: 700;
+  }
+  select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 1rem;
+    color: var(--text);
+    background: white;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='%2364748B' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--primary); }
+  input[type="text"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 1.05rem;
+    color: var(--text);
+    background: white;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus { outline: none; border-color: var(--primary); }
+  input[type="text"].correct { border-color: var(--success); background: var(--success-bg); }
+  input[type="text"].incorrect { border-color: var(--error); background: var(--error-bg); }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--border);
+    border-radius: 99px;
+    height: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 99px;
+    transition: width 0.3s ease;
+  }
+  .progress-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: right;
+    margin-bottom: 16px;
+  }
+
+  /* Question */
+  .question-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .category-badge {
+    display: inline-block;
+    background: #EEF2FF;
+    color: var(--primary);
+    border-radius: 99px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .japanese-text {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  /* Feedback */
+  .feedback {
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 14px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    display: none;
+  }
+  .feedback.correct {
+    background: var(--success-bg);
+    border: 1.5px solid #6EE7B7;
+    color: var(--success);
+    display: block;
+  }
+  .feedback.incorrect {
+    background: var(--error-bg);
+    border: 1.5px solid #FCA5A5;
+    color: var(--error);
+    display: block;
+  }
+  .feedback .answer {
+    margin-top: 6px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Score */
+  .score-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: conic-gradient(var(--primary) var(--pct), var(--border) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+  .score-inner {
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .score-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+  }
+  .score-total {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .score-text {
+    text-align: center;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  /* Add phrase modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Page visibility */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .gap { margin-bottom: 12px; }
+
+  /* Incorrect list */
+  .phrase-item {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+  .phrase-item:last-child { border-bottom: none; }
+  .phrase-jp { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+  .phrase-en { font-size: 0.9rem; color: var(--muted); }
+
+  .count-badge {
+    background: var(--error-bg);
+    color: var(--error);
+    border-radius: 99px;
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 1rem;
+  }
+
+  /* Mic button */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .btn-row .btn { flex: 1; }
+  .btn-mic {
+    width: 56px;
+    min-width: 56px;
+    flex: none !important;
+    padding: 0;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    font-size: 1.5rem;
+    cursor: pointer;
+    background: white;
+    color: var(--text);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .btn-mic:active { transform: scale(0.95); }
+  .btn-mic.listening {
+    background: #FEE2E2;
+    border-color: var(--error);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+  .btn-mic.unsupported { opacity: 0.4; cursor: not-allowed; }
+  .mic-status {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 8px;
+    min-height: 20px;
+    transition: color 0.2s;
+  }
+  .mic-status.active { color: var(--error); font-weight: 600; }
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); }
+    50%       { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HOME -->
+  <div id="page-home" class="page active">
+    <h1>🗣 英語フレーズクイズ</h1>
+    <p class="subtitle">日本語 → 英語に訳してみよう</p>
+
+    <div class="card">
+      <div class="card-title">出題モード</div>
+      <div class="btn-group gap">
+        <button class="toggle-btn active" id="mode-random" onclick="setMode('random')">ランダム</button>
+        <button class="toggle-btn" id="mode-category" onclick="setMode('category')">カテゴリ別</button>
+      </div>
+      <div id="category-select-wrap" style="display:none">
+        <select id="category-select">
+          <option value="">カテゴリを選択...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">出題数</div>
+      <div class="btn-group">
+        <button class="toggle-btn" id="count-10" onclick="setCount(10)">10問</button>
+        <button class="toggle-btn" id="count-20" onclick="setCount(20)">20問</button>
+        <button class="toggle-btn active" id="count-all" onclick="setCount('all')">全問</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="startQuiz(false)" style="margin-bottom:12px">
+      ▶ クイズスタート
+    </button>
+
+    <button class="btn btn-secondary gap" onclick="startReview()" id="review-btn">
+      📝 復習モード（不正解のみ）
+    </button>
+
+    <button class="btn btn-secondary" onclick="openAddModal()">
+      ＋ フレーズを追加
+    </button>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="page-quiz" class="page">
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="progress-label" id="progress-label"></div>
+
+    <div class="card">
+      <div class="question-label">次の日本語を英語にしてください</div>
+      <div class="category-badge" id="q-category"></div>
+      <div class="japanese-text" id="q-japanese"></div>
+
+      <input type="text" id="answer-input" placeholder="英語で入力..." autocomplete="off" autocorrect="off" spellcheck="false"
+        onkeydown="if(event.key==='Enter') submitAnswer()">
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div id="btn-submit-wrap">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="submitAnswer()">答え合わせ</button>
+        <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="音声入力">🎤</button>
+      </div>
+      <div class="mic-status" id="mic-status"></div>
+    </div>
+    <div id="btn-next-wrap" style="display:none">
+      <button class="btn btn-primary" onclick="nextQuestion()">次の問題 →</button>
+    </div>
+
+    <button class="btn btn-secondary" onclick="goHome()" style="margin-top:10px; background:transparent; color:var(--muted); box-shadow:none; font-size:0.9rem">
+      ホームに戻る
+    </button>
+  </div>
+
+  <!-- RESULT -->
+  <div id="page-result" class="page">
+    <h1 style="margin-bottom:24px">結果発表</h1>
+
+    <div class="card" style="text-align:center">
+      <div class="score-circle" id="score-circle">
+        <div class="score-inner">
+          <div class="score-num" id="score-num"></div>
+          <div class="score-total" id="score-total-label"></div>
+        </div>
+      </div>
+      <div class="score-text" id="score-msg"></div>
+    </div>
+
+    <div class="card" id="incorrect-list-card" style="display:none">
+      <div class="card-title">不正解だった問題</div>
+      <div class="count-badge" id="incorrect-count-badge"></div>
+      <div id="incorrect-list"></div>
+    </div>
+
+    <button class="btn btn-primary gap" onclick="startQuiz(false)">もう一度</button>
+    <button class="btn btn-secondary gap" onclick="startReview()" id="result-review-btn">
+      📝 不正解を復習する
+    </button>
+    <button class="btn btn-secondary" onclick="goHome()">ホームに戻る</button>
+  </div>
+
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">フレーズを追加</div>
+    <div class="form-group">
+      <label class="form-label">日本語</label>
+      <input type="text" id="add-jp" placeholder="日本語のフレーズ">
+    </div>
+    <div class="form-group">
+      <label class="form-label">英語</label>
+      <input type="text" id="add-en" placeholder="English phrase">
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテゴリ</label>
+      <input type="text" id="add-cat" placeholder="カテゴリ名（例：その他表現）" list="cat-list">
+      <datalist id="cat-list"></datalist>
+    </div>
+    <button class="btn btn-primary gap" onclick="savePhrase()">登録する</button>
+    <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// ---- DATA ----
+const CSV_PHRASES = [
+  {id:1,category:"接客・日常会話",japanese:"かつ丼に小うどんをつけることができますよ。いかがですか？",english:"You can add a small udon to your katsudon. Would you like that?"},
+  {id:2,category:"接客・日常会話",japanese:"トイレは真っすぐ進んで右側にあります。",english:"The restroom is straight ahead on your right."},
+  {id:3,category:"接客・日常会話",japanese:"観葉植物が好きで、育てるのが得意です。枯らしたことがありません。",english:"I like houseplants and I'm good at taking care of them. I've never killed one."},
+  {id:4,category:"接客・日常会話",japanese:"いつもと違うルートで散歩します。",english:"I take a walk on a different route than usual."},
+  {id:5,category:"接客・日常会話",japanese:"毎日神社にお参りに行きます。",english:"I go to a shrine every day to pray."},
+  {id:6,category:"接客・日常会話",japanese:"リュックが電車のドアに挟まりますよ。",english:"Your backpack is going to get caught in the train doors."},
+  {id:7,category:"接客・日常会話",japanese:"3つ展示されていますが、在庫はありますか？",english:"There are three on display—do you have more in stock?"},
+  {id:8,category:"接客・日常会話",japanese:"トイレは真っすぐ進んで左側にあります。",english:"The restroom is straight ahead on your left."},
+  {id:9,category:"接客・日常会話",japanese:"これ、落としましたか？",english:"Did you drop this?"},
+  {id:10,category:"接客・日常会話",japanese:"仕事の後に病院に寄ります。",english:"I'll stop by the hospital after work."},
+  {id:11,category:"電車・移動",japanese:"後ろの車両に乗って、心斎橋駅で5番出口から出てください。",english:"Get on the rear car and take Exit 5 at Shinsaibashi Station."},
+  {id:12,category:"電車・移動",japanese:"アレクサ、4分のタイマーをセットして。",english:"Alexa set a timer for four minutes."},
+  {id:13,category:"電車・移動",japanese:"この電車は新大阪行きなので、四つ橋には止まりません。",english:"This train is bound for Shin-Osaka so it doesn't stop at Yotsubashi."},
+  {id:14,category:"電車・移動",japanese:"仕事が長引いているので遅れます。",english:"I'll be late because work is running late."},
+  {id:15,category:"電車・移動",japanese:"午後5時にくりたという名前で2名の予約をしています。",english:"I have a reservation for two under Kurita at 5 p.m."},
+  {id:16,category:"電車・移動",japanese:"このステーキにはどんなセットがありますか？",english:"What kind of combos are available with this steak?"},
+  {id:17,category:"電車・移動",japanese:"ホテル日航でパーティーに参加します。",english:"I'm attending a party at the Hotel Nikko."},
+  {id:18,category:"注文・買い物",japanese:"2段目の左から3番目のケーキをください。",english:"I'll have the third cake from the left on the second shelf."},
+  {id:19,category:"注文・買い物",japanese:"ゴミはまとめて捨ててください。",english:"Throw away all the trash together."},
+  {id:20,category:"注文・買い物",japanese:"下の段からドーナツを2つもらえますか？",english:"Can I get two donuts from the bottom shelf?"},
+  {id:21,category:"注文・買い物",japanese:"上の段の右から2番目、手前のドーナツを2つください。",english:"Two donuts—the second from the right on the top shelf in the front."},
+  {id:22,category:"日常・感覚表現",japanese:"3月が始まってもう4日も経った。",english:"It's already been four days since March started."},
+  {id:23,category:"日常・感覚表現",japanese:"飛行機がすぐ真上を飛んでいるのが見えます。",english:"You can see planes flying really close overhead."},
+  {id:24,category:"日常・感覚表現",japanese:"姿勢が悪いです。",english:"My posture is bad."},
+  {id:25,category:"道案内",japanese:"真っすぐ進んで最初の角を左に曲がると下り階段があります。それを降りると近鉄の改札に着きます。",english:"Go straight turn left at the first corner and you'll see stairs going down. Go down them and you'll reach the Kintetsu ticket gate."},
+  {id:26,category:"道案内",japanese:"この旅行のために9ヶ月間毎日英語を勉強してきました。",english:"I've been studying English every day for nine months for this trip."},
+  {id:27,category:"道案内",japanese:"改札を出ると右側にスターバックスがあります。",english:"There's a Starbucks on your right after you exit the gate."},
+  {id:28,category:"交通ルール・案内",japanese:"座席の予約はありますか？指定席券が必要です。あの機械で買えますよ。",english:"Do you have a seat reservation? You need a reserved seat ticket. You can buy one at that machine."},
+  {id:29,category:"交通ルール・案内",japanese:"13番か7番をそれぞれの3人に送ってください。",english:"Send either number 13 or 7 to each of the three people."},
+  {id:30,category:"交通ルール・案内",japanese:"このスペースは車椅子とベビーカー用です。",english:"This space is for wheelchairs and strollers."},
+  {id:31,category:"交通ルール・案内",japanese:"すみません、この車椅子の方にこのスペースを使わせてもらえますか？",english:"Excuse me could you let this person in a wheelchair use this space?"},
+  {id:32,category:"状況・観察",japanese:"家の近くのホテルはいろんな国からの宿泊客がいるようです。",english:"The hotel near my house seems to have guests from many different countries."},
+  {id:33,category:"状況・観察",japanese:"バスに長い行列ができていました。",english:"There was a huge line for the bus."},
+  {id:34,category:"状況・観察",japanese:"1ヶ月前にメルカリに出したカメラがまだ売れていません。",english:"The camera I listed on Mercari a month ago still hasn't sold."},
+  {id:35,category:"状況・観察",japanese:"どう？勝ってる？",english:"How is it? Are they winning?"},
+  {id:36,category:"野球",japanese:"少なくともこのイニングは点を取られなかった。",english:"At least they didn't give up any runs this inning."},
+  {id:37,category:"野球",japanese:"三者凡退に抑えた。",english:"He retired the side in order."},
+  {id:38,category:"その他日常",japanese:"このソニーの時計は廃番になっています。",english:"This Sony watch has been discontinued."},
+  {id:39,category:"その他日常",japanese:"ChatGPTに毎日5問英語フレーズ問題を出してもらっています。",english:"I have ChatGPT give me five English phrase questions a day."},
+  {id:40,category:"その他日常",japanese:"6時半までに洗面台を使い終わってください。6時半に使います。",english:"Please finish using the sink by 6:30. I need it at 6:30."},
+  {id:41,category:"その他日常",japanese:"今日は何時まで雨が降りますか？",english:"Until what time will it rain today?"},
+  {id:42,category:"その他日常",japanese:"今日の午後は乾燥注意報が出ています。",english:"There's a dry air advisory this afternoon."},
+  {id:43,category:"その他日常",japanese:"そうなの？今雨が降っているのに？それはおかしい。",english:"Really? Even though it's raining now? That's weird."},
+  {id:44,category:"その他日常",japanese:"バッグが開いていますよ。財布やスマホが落ちるかもしれません。",english:"Your bag is open—your wallet or phone might fall out."},
+  {id:45,category:"乗り換え・案内",japanese:"京都に行くには天下茶屋駅で乗り換えてください。別の鉄道会社なので改札を出て新しい切符を買う必要があります。",english:"To get to Kyoto transfer at Tengachaya Station. You'll need to exit the ticket gate and buy a new ticket since it's a different railway company."},
+  {id:46,category:"並び・混雑",japanese:"入店するために並ばないといけません。",english:"You have to line up to get into the store."},
+  {id:47,category:"並び・混雑",japanese:"電車に乗るために並ばないといけません。",english:"You have to line up to get on the train."},
+  {id:48,category:"並び・混雑",japanese:"今は混んでいるので、並ばないと絶対に入れませんよ。",english:"It's crowded now so if you don't line up you'll never get in."},
+  {id:49,category:"並び・混雑",japanese:"今は混んでいるので、並ばないと電車に乗れませんよ。",english:"It's crowded now so if you don't line up you won't be able to get on the train."},
+  {id:50,category:"並び・混雑",japanese:"ラッシュアワーなので、無理やり乗り込まないと乗れません。",english:"It's rush hour so if you don't force your way in you won't be able to get on."},
+  {id:51,category:"その他表現",japanese:"外で大勢の人が騒いでいるようです。",english:"It sounds like a group of people outside is making a lot of noise."},
+  {id:52,category:"その他表現",japanese:"列の最後尾はあちらです。",english:"The end of the line is over there."},
+  {id:53,category:"その他表現",japanese:"ここは自転車レーンです。",english:"This is a bike lane."},
+  {id:54,category:"その他表現",japanese:"すみません、仕事に向かう途中で時間がありません。",english:"Sorry I'm on my way to work and don't have time."},
+  {id:55,category:"その他表現",japanese:"ぐっすり眠っていました。",english:"I was sleeping like a log."},
+  {id:56,category:"その他表現",japanese:"次は〇〇です。",english:"Next up is 〇〇."},
+  {id:57,category:"その他表現",japanese:"10日に1回植物に水をやります。",english:"I water my plants every 10 days."},
+  {id:58,category:"その他表現",japanese:"仕事で疲れてベッドでゴロゴロしています。",english:"I'm tired from work and just lounging in bed."},
+  {id:59,category:"その他表現",japanese:"明日は休みなので1時間遅く起きます。",english:"I'll wake up an hour later tomorrow since it's my day off."},
+  {id:60,category:"その他表現",japanese:"家の近くに新しいレストランができて気になっているので、近々行ってみたいです。",english:"There's a new restaurant near my house that I'm interested in so I'd like to check it out soon."},
+  {id:61,category:"その他表現",japanese:"この問題がどうしても理解できない。",english:"I just can't understand this problem."},
+  {id:62,category:"その他表現",japanese:"このエリアは歩行者専用です。",english:"This area is for pedestrians only."},
+  {id:63,category:"その他表現",japanese:"今はちょうどいい混み具合です。",english:"It's not too crowded right now."},
+  {id:64,category:"その他表現",japanese:"今はとても混んでいます。",english:"It's really crowded right now."},
+  {id:65,category:"その他表現",japanese:"完全に満員です。",english:"It's completely packed."},
+  {id:66,category:"その他表現",japanese:"今は空いています。",english:"It's pretty calm right now. / It's not busy right now."},
+  {id:67,category:"その他表現",japanese:"忘れないようにメモしておきます。",english:"I'll jot it down so I don't forget."},
+  {id:68,category:"その他表現",japanese:"海外に行ったことがありません。",english:"I've never been abroad."},
+  {id:69,category:"その他表現",japanese:"少し詰めてもらえますか？",english:"Could you make some room?"},
+  {id:70,category:"その他表現",japanese:"この方をここに座らせてもらえますか？",english:"Could you let this person sit here?"},
+  {id:75,category:"会話セット",japanese:"どこから来ましたか？/ ブラジルから来ました。/ わあ、遠いところから！/ 遠くから来たんですね！/ かなり長い旅でしたね！",english:"Where are you from? / I'm from Brazil. / Wow that's a long way from here! / Wow you came from far away! / That's quite a long trip!"},
+];
+
+// ---- STATE ----
+let mode = 'random';
+let countMode = 'all';
+let quizList = [];
+let currentIndex = 0;
+let score = 0;
+let incorrectPhrases = [];
+let answered = false;
+let isReviewMode = false;
+
+function getAllPhrases() {
+  const saved = JSON.parse(localStorage.getItem('custom_phrases') || '[]');
+  return [...CSV_PHRASES, ...saved];
+}
+
+function getCategories() {
+  const all = getAllPhrases();
+  return [...new Set(all.map(p => p.category))];
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---- INIT ----
+function init() {
+  const cats = getCategories();
+  const sel = document.getElementById('category-select');
+  sel.innerHTML = '<option value="">カテゴリを選択...</option>';
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+  const dl = document.getElementById('cat-list');
+  dl.innerHTML = '';
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    dl.appendChild(o);
+  });
+  updateReviewBtn();
+}
+
+function updateReviewBtn() {
+  const incorrect = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
+  const btn = document.getElementById('review-btn');
+  if (incorrect.length > 0) {
+    btn.textContent = `📝 復習モード（不正解 ${incorrect.length}問）`;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    btn.textContent = '📝 復習モード（不正解なし）';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
+}
+
+// ---- MODE / COUNT ----
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('[id^="mode-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-' + m).classList.add('active');
+  document.getElementById('category-select-wrap').style.display = m === 'category' ? 'block' : 'none';
+}
+
+function setCount(c) {
+  countMode = c;
+  ['10','20','all'].forEach(v => {
+    document.getElementById('count-' + v).classList.remove('active');
+  });
+  document.getElementById('count-' + c).classList.add('active');
+}
+
+// ---- QUIZ START ----
+function startQuiz(reviewMode) {
+  isReviewMode = reviewMode;
+  let pool;
+
+  if (reviewMode) {
+    const saved = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
+    if (saved.length === 0) { alert('不正解フレーズがありません。'); return; }
+    pool = saved;
+  } else {
+    const all = getAllPhrases();
+    if (mode === 'category') {
+      const cat = document.getElementById('category-select').value;
+      if (!cat) { alert('カテゴリを選択してください。'); return; }
+      pool = all.filter(p => p.category === cat);
+      if (pool.length === 0) { alert('このカテゴリにフレーズがありません。'); return; }
+    } else {
+      pool = all;
+    }
+  }
+
+  pool = shuffle(pool);
+  if (countMode !== 'all' && !reviewMode) {
+    pool = pool.slice(0, Math.min(Number(countMode), pool.length));
+  }
+
+  quizList = pool;
+  currentIndex = 0;
+  score = 0;
+  incorrectPhrases = [];
+
+  showPage('page-quiz');
+  renderQuestion();
+}
+
+function startReview() {
+  startQuiz(true);
+}
+
+// ---- RENDER QUESTION ----
+function renderQuestion() {
+  stopMic();
+  answered = false;
+  const q = quizList[currentIndex];
+  const total = quizList.length;
+
+  const pct = (currentIndex / total) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${currentIndex + 1} / ${total}問`;
+
+  document.getElementById('q-category').textContent = q.category;
+  document.getElementById('q-japanese').textContent = q.japanese;
+
+  const input = document.getElementById('answer-input');
+  input.value = '';
+  input.className = '';
+  input.disabled = false;
+
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '';
+
+  document.getElementById('btn-submit-wrap').style.display = 'block';
+  document.getElementById('btn-next-wrap').style.display = 'none';
+
+  setTimeout(() => input.focus(), 100);
+}
+
+// ---- SUBMIT ANSWER ----
+function submitAnswer() {
+  if (answered) return;
+  const q = quizList[currentIndex];
+  const input = document.getElementById('answer-input');
+  const userAnswer = input.value.trim();
+  if (!userAnswer) return;
+
+  answered = true;
+  input.disabled = true;
+  document.getElementById('btn-submit-wrap').style.display = 'none';
+  document.getElementById('btn-next-wrap').style.display = 'block';
+
+  const correct = q.english;
+  const isCorrect = userAnswer === correct;
+
+  const fb = document.getElementById('feedback');
+
+  if (isCorrect) {
+    score++;
+    input.className = 'correct';
+    fb.className = 'feedback correct';
+    fb.innerHTML = '✅ 正解！';
+  } else {
+    input.className = 'incorrect';
+    fb.className = 'feedback incorrect';
+    fb.innerHTML = `❌ 不正解<div class="answer">正解：${escapeHtml(correct)}</div>`;
+    incorrectPhrases.push(q);
+  }
+}
+
+function nextQuestion() {
+  currentIndex++;
+  if (currentIndex >= quizList.length) {
+    showResult();
+  } else {
+    renderQuestion();
+  }
+}
+
+// ---- RESULT ----
+function showResult() {
+  // Update persistent incorrect list
+  if (!isReviewMode) {
+    const existing = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
+    // Remove phrases that were answered correctly this session
+    const incorrectIds = new Set(incorrectPhrases.map(p => p.id + '|' + p.japanese));
+    const correctIds = new Set(
+      quizList.filter((_, i) => i < quizList.length).map(p => p.id + '|' + p.japanese)
+    );
+    // All questions answered correctly get removed from persistent store
+    const answeredCorrectly = quizList.filter(p => !incorrectPhrases.some(x => x.japanese === p.japanese));
+    let updated = existing.filter(p => !answeredCorrectly.some(x => x.japanese === p.japanese));
+    // Add new incorrects (dedup)
+    incorrectPhrases.forEach(p => {
+      if (!updated.some(x => x.japanese === p.japanese)) updated.push(p);
+    });
+    localStorage.setItem('incorrect_phrases', JSON.stringify(updated));
+  } else {
+    // In review mode: remove those answered correctly
+    const existing = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
+    const answeredCorrectly = quizList.filter(p => !incorrectPhrases.some(x => x.japanese === p.japanese));
+    let updated = existing.filter(p => !answeredCorrectly.some(x => x.japanese === p.japanese));
+    incorrectPhrases.forEach(p => {
+      if (!updated.some(x => x.japanese === p.japanese)) updated.push(p);
+    });
+    localStorage.setItem('incorrect_phrases', JSON.stringify(updated));
+  }
+
+  const total = quizList.length;
+  const pct = Math.round((score / total) * 100);
+  const deg = Math.round((score / total) * 360);
+
+  document.getElementById('score-circle').style.setProperty('--pct', deg + 'deg');
+  document.getElementById('score-num').textContent = score;
+  document.getElementById('score-total-label').textContent = `/ ${total}問`;
+
+  let msg = '';
+  if (pct === 100) msg = '完璧！素晴らしい！🎉';
+  else if (pct >= 80) msg = `${total}問中${score}問正解！よくできました！`;
+  else if (pct >= 50) msg = `${total}問中${score}問正解。もう少し！`;
+  else msg = `${total}問中${score}問正解。復習しよう！`;
+  document.getElementById('score-msg').textContent = msg;
+
+  if (incorrectPhrases.length > 0) {
+    document.getElementById('incorrect-list-card').style.display = 'block';
+    document.getElementById('incorrect-count-badge').textContent = `${incorrectPhrases.length}問不正解`;
+    const list = document.getElementById('incorrect-list');
+    list.innerHTML = incorrectPhrases.map(p =>
+      `<div class="phrase-item">
+        <div class="phrase-jp">${escapeHtml(p.japanese)}</div>
+        <div class="phrase-en">${escapeHtml(p.english)}</div>
+      </div>`
+    ).join('');
+    document.getElementById('result-review-btn').style.display = 'flex';
+  } else {
+    document.getElementById('incorrect-list-card').style.display = 'none';
+    document.getElementById('result-review-btn').style.display = 'none';
+  }
+
+  showPage('page-result');
+}
+
+// ---- ADD PHRASE ----
+function openAddModal() {
+  document.getElementById('add-jp').value = '';
+  document.getElementById('add-en').value = '';
+  document.getElementById('add-cat').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('add-jp').focus(), 200);
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+function savePhrase() {
+  const jp = document.getElementById('add-jp').value.trim();
+  const en = document.getElementById('add-en').value.trim();
+  const cat = document.getElementById('add-cat').value.trim() || 'その他表現';
+  if (!jp || !en) { alert('日本語と英語を入力してください。'); return; }
+  const saved = JSON.parse(localStorage.getItem('custom_phrases') || '[]');
+  const newId = 'custom_' + Date.now();
+  saved.push({ id: newId, category: cat, japanese: jp, english: en });
+  localStorage.setItem('custom_phrases', JSON.stringify(saved));
+  closeModal();
+  init();
+  alert('フレーズを追加しました！');
+}
+
+// ---- NAVIGATION ----
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function goHome() {
+  stopMic();
+  showPage('page-home');
+  init();
+}
+
+// ---- UTILS ----
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ---- SPEECH RECOGNITION ----
+let recognition = null;
+let isListening = false;
+const hasSpeech = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+function stopMic() {
+  if (recognition && isListening) {
+    try { recognition.stop(); } catch (_) {}
+  }
+}
+
+function toggleMic() {
+  if (answered) return;
+  if (!hasSpeech) {
+    alert('音声入力はこのブラウザでは利用できません。\nSafari（iOS 14.5以降）またはChromeをお使いください。');
+    return;
+  }
+  if (isListening) {
+    stopMic();
+  } else {
+    startListening();
+  }
+}
+
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // iOS Safari requires a fresh instance each session
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    setMicBtn(true);
+    setMicStatus('🎤 話してください...', true);
+  };
+
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t;
+      else interim += t;
+    }
+    const input = document.getElementById('answer-input');
+    // Prefer final; fall back to interim for live preview
+    if (final) input.value = final;
+    else if (interim) input.value = interim;
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    setMicBtn(false);
+    if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+      setMicStatus('❌ マイクの使用を許可してください', false);
+    } else if (e.error === 'no-speech') {
+      setMicStatus('音声が検出されませんでした', false);
+    } else if (e.error === 'network') {
+      setMicStatus('ネットワークエラー（HTTPSが必要です）', false);
+    } else {
+      setMicStatus('', false);
+    }
+    setTimeout(() => setMicStatus('', false), 3000);
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    setMicBtn(false);
+    setMicStatus('', false);
+    recognition = null;
+  };
+
+  try {
+    recognition.start();
+  } catch (e) {
+    isListening = false;
+    setMicBtn(false);
+    setMicStatus('音声入力を開始できませんでした', false);
+    setTimeout(() => setMicStatus('', false), 3000);
+  }
+}
+
+function setMicBtn(listening) {
+  const btn = document.getElementById('mic-btn');
+  if (!btn) return;
+  if (!hasSpeech) { btn.classList.add('unsupported'); return; }
+  btn.classList.toggle('listening', listening);
+  btn.textContent = listening ? '⏹' : '🎤';
+  btn.title = listening ? '停止' : '音声入力';
+}
+
+function setMicStatus(msg, active) {
+  const el = document.getElementById('mic-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('active', !!active);
+}
+
+// ---- BOOT ----
+init();
+if (!hasSpeech) {
+  const btn = document.getElementById('mic-btn');
+  if (btn) btn.classList.add('unsupported');
+}
+</script>
+</body>
+</html>

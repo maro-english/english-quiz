@@ -1,0 +1,72 @@
+id,category,japanese,english
+1,接客・日常会話,かつ丼に小うどんをつけることができますよ。いかがですか？,You can add a small udon to your katsudon. Would you like that?
+2,接客・日常会話,トイレは真っすぐ進んで右側にあります。,The restroom is straight ahead on your right.
+3,接客・日常会話,観葉植物が好きで、育てるのが得意です。枯らしたことがありません。,I like houseplants and I'm good at taking care of them. I've never killed one.
+4,接客・日常会話,いつもと違うルートで散歩します。,I take a walk on a different route than usual.
+5,接客・日常会話,毎日神社にお参りに行きます。,I go to a shrine every day to pray.
+6,接客・日常会話,リュックが電車のドアに挟まりますよ。,Your backpack is going to get caught in the train doors.
+7,接客・日常会話,3つ展示されていますが、在庫はありますか？,There are three on display—do you have more in stock?
+8,接客・日常会話,トイレは真っすぐ進んで左側にあります。,The restroom is straight ahead on your left.
+9,接客・日常会話,これ、落としましたか？,Did you drop this?
+10,接客・日常会話,仕事の後に病院に寄ります。,I'll stop by the hospital after work.
+11,電車・移動,後ろの車両に乗って、心斎橋駅で5番出口から出てください。,Get on the rear car and take Exit 5 at Shinsaibashi Station.
+12,電車・移動,アレクサ、4分のタイマーをセットして。,Alexa set a timer for four minutes.
+13,電車・移動,この電車は新大阪行きなので、四つ橋には止まりません。,This train is bound for Shin-Osaka so it doesn't stop at Yotsubashi.
+14,電車・移動,仕事が長引いているので遅れます。,I'll be late because work is running late.
+15,電車・移動,午後5時にくりたという名前で2名の予約をしています。,I have a reservation for two under Kurita at 5 p.m.
+16,電車・移動,このステーキにはどんなセットがありますか？,What kind of combos are available with this steak?
+17,電車・移動,ホテル日航でパーティーに参加します。,I'm attending a party at the Hotel Nikko.
+18,注文・買い物,2段目の左から3番目のケーキをください。,I'll have the third cake from the left on the second shelf.
+19,注文・買い物,ゴミはまとめて捨ててください。,Throw away all the trash together.
+20,注文・買い物,下の段からドーナツを2つもらえますか？,Can I get two donuts from the bottom shelf?
+21,注文・買い物,上の段の右から2番目、手前のドーナツを2つください。,Two donuts—the second from the right on the top shelf in the front.
+22,日常・感覚表現,3月が始まってもう4日も経った。,It's already been four days since March started.
+23,日常・感覚表現,飛行機がすぐ真上を飛んでいるのが見えます。,You can see planes flying really close overhead.
+24,日常・感覚表現,姿勢が悪いです。,My posture is bad.
+25,道案内,真っすぐ進んで最初の角を左に曲がると下り階段があります。それを降りると近鉄の改札に着きます。,Go straight turn left at the first corner and you'll see stairs going down. Go down them and you'll reach the Kintetsu ticket gate.
+26,道案内,この旅行のために9ヶ月間毎日英語を勉強してきました。,I've been studying English every day for nine months for this trip.
+27,道案内,改札を出ると右側にスターバックスがあります。,There's a Starbucks on your right after you exit the gate.
+28,交通ルール・案内,座席の予約はありますか？指定席券が必要です。あの機械で買えますよ。,Do you have a seat reservation? You need a reserved seat ticket. You can buy one at that machine.
+29,交通ルール・案内,13番か7番をそれぞれの3人に送ってください。,Send either number 13 or 7 to each of the three people.
+30,交通ルール・案内,このスペースは車椅子とベビーカー用です。,This space is for wheelchairs and strollers.
+31,交通ルール・案内,すみません、この車椅子の方にこのスペースを使わせてもらえますか？,Excuse me could you let this person in a wheelchair use this space?
+32,状況・観察,家の近くのホテルはいろんな国からの宿泊客がいるようです。,The hotel near my house seems to have guests from many different countries.
+33,状況・観察,バスに長い行列ができていました。,There was a huge line for the bus.
+34,状況・観察,1ヶ月前にメルカリに出したカメラがまだ売れていません。,The camera I listed on Mercari a month ago still hasn't sold.
+35,状況・観察,どう？勝ってる？,How is it? Are they winning?
+36,野球,少なくともこのイニングは点を取られなかった。,At least they didn't give up any runs this inning.
+37,野球,三者凡退に抑えた。,He retired the side in order.
+38,その他日常,このソニーの時計は廃番になっています。,This Sony watch has been discontinued.
+39,その他日常,ChatGPTに毎日5問英語フレーズ問題を出してもらっています。,I have ChatGPT give me five English phrase questions a day.
+40,その他日常,6時半までに洗面台を使い終わってください。6時半に使います。,Please finish using the sink by 6:30. I need it at 6:30.
+41,その他日常,今日は何時まで雨が降りますか？,Until what time will it rain today?
+42,その他日常,今日の午後は乾燥注意報が出ています。,There's a dry air advisory this afternoon.
+43,その他日常,そうなの？今雨が降っているのに？それはおかしい。,Really? Even though it's raining now? That's weird.
+44,その他日常,バッグが開いていますよ。財布やスマホが落ちるかもしれません。,Your bag is open—your wallet or phone might fall out.
+45,乗り換え・案内,京都に行くには天下茶屋駅で乗り換えてください。別の鉄道会社なので改札を出て新しい切符を買う必要があります。,To get to Kyoto transfer at Tengachaya Station. You'll need to exit the ticket gate and buy a new ticket since it's a different railway company.
+46,並び・混雑,入店するために並ばないといけません。,You have to line up to get into the store.
+47,並び・混雑,電車に乗るために並ばないといけません。,You have to line up to get on the train.
+48,並び・混雑,今は混んでいるので、並ばないと絶対に入れませんよ。,It's crowded now so if you don't line up you'll never get in.
+49,並び・混雑,今は混んでいるので、並ばないと電車に乗れませんよ。,It's crowded now so if you don't line up you won't be able to get on the train.
+50,並び・混雑,ラッシュアワーなので、無理やり乗り込まないと乗れません。,It's rush hour so if you don't force your way in you won't be able to get on.
+51,その他表現,外で大勢の人が騒いでいるようです。,It sounds like a group of people outside is making a lot of noise.
+52,その他表現,列の最後尾はあちらです。,The end of the line is over there.
+53,その他表現,ここは自転車レーンです。,This is a bike lane.
+54,その他表現,すみません、仕事に向かう途中で時間がありません。,Sorry I'm on my way to work and don't have time.
+55,その他表現,ぐっすり眠っていました。,I was sleeping like a log.
+56,その他表現,次は〇〇です。,Next up is 〇〇.
+57,その他表現,10日に1回植物に水をやります。,I water my plants every 10 days.
+58,その他表現,仕事で疲れてベッドでゴロゴロしています。,I'm tired from work and just lounging in bed.
+59,その他表現,明日は休みなので1時間遅く起きます。,I'll wake up an hour later tomorrow since it's my day off.
+60,その他表現,家の近くに新しいレストランができて気になっているので、近々行ってみたいです。,There's a new restaurant near my house that I'm interested in so I'd like to check it out soon.
+61,その他表現,この問題がどうしても理解できない。,I just can't understand this problem.
+62,その他表現,このエリアは歩行者専用です。,This area is for pedestrians only.
+63,その他表現,今はちょうどいい混み具合です。,It's not too crowded right now.
+64,その他表現,今はとても混んでいます。,It's really crowded right now.
+65,その他表現,完全に満員です。,It's completely packed.
+66,その他表現,今は空いています。,It's pretty calm right now. / It's not busy right now.
+67,その他表現,忘れないようにメモしておきます。,I'll jot it down so I don't forget.
+68,その他表現,海外に行ったことがありません。,I've never been abroad.
+69,その他表現,少し詰めてもらえますか？,Could you make some room?
+70,その他表現,この方をここに座らせてもらえますか？,Could you let this person sit here?
+75,会話セット,どこから来ましたか？/ ブラジルから来ました。/ わあ、遠いところから！/ 遠くから来たんですね！/ かなり長い旅でしたね！,"Where are you from? / I'm from Brazil. / Wow that's a long way from here! / Wow you came from far away! / That's quite a long trip!"
