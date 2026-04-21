@@ -981,13 +981,12 @@ Reply with ONLY valid JSON, no other text:
 {"result":"NATURAL","suggestion":"more natural English here"}
 {"result":"INCORRECT","suggestion":"correct English here"}`;
 
-  // anthropic-dangerous-allow-browser は意図的に省略。
-  // SDK 側のガード用ヘッダーであり、fetch に含めると Safari の CORS
-  // プリフライトで弾かれる場合があるため。
   let res;
   try {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -1000,7 +999,6 @@ Reply with ONLY valid JSON, no other text:
       })
     });
   } catch (networkErr) {
-    // TypeError: Load failed / Failed to fetch → CORS or offline
     throw networkErr;
   }
 
