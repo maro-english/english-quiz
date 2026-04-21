@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/grade.js": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}

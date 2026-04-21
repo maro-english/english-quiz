@@ -870,7 +870,15 @@ async function submitAnswer() {
     input.disabled = false;
     document.getElementById('submit-btn').disabled = false;
     document.getElementById('mic-btn').disabled = false;
-    showGradeModal(q, userAnswer);
+
+    const fb = document.getElementById('feedback');
+    fb.className = 'feedback incorrect';
+    fb.innerHTML = `⚠️ 採点エラー：${escapeHtml(err.message)}<br><span style="font-size:0.85rem;color:var(--muted)">コピペ採点に切り替えます...</span>`;
+    setTimeout(() => {
+      fb.className = 'feedback';
+      fb.innerHTML = '';
+      showGradeModal(q, userAnswer);
+    }, 2000);
   }
 }
 
