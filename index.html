@@ -464,50 +464,6 @@
     flex-shrink: 0;
   }
 
-  /* API Key modal */
-  .apikey-banner {
-    background: #FFFBEB;
-    border: 1.5px solid #FCD34D;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    font-size: 0.9rem;
-    color: #92400E;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-  }
-  .apikey-banner b { flex: 1; }
-  .settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-  }
-  .settings-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.1rem;
-    color: var(--muted);
-    padding: 4px 8px;
-    border-radius: 8px;
-  }
-  .settings-btn:hover { background: var(--border); }
-  .key-input-wrap { position: relative; }
-  .key-input-wrap input { padding-right: 48px; }
-  .key-toggle {
-    position: absolute;
-    right: 12px; top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-    color: var(--muted);
-    padding: 2px;
-  }
 </style>
 </head>
 <body>
@@ -515,16 +471,8 @@
 
   <!-- HOME -->
   <div id="page-home" class="page active">
-    <div class="settings-row">
-      <h1 style="margin-bottom:0">🗣 英語フレーズクイズ</h1>
-      <button class="settings-btn" onclick="openApikeyModal()" title="APIキー設定">⚙️</button>
-    </div>
+    <h1>🗣 英語フレーズクイズ</h1>
     <p class="subtitle">日本語 → 英語に訳してみよう</p>
-    <div class="apikey-banner" id="apikey-banner" onclick="openApikeyModal()" style="display:none">
-      <span>⚠️</span>
-      <b>AIキーが未設定です。タップして設定するとAI採点が使えます。</b>
-      <span>›</span>
-    </div>
 
     <div class="card">
       <div class="card-title">出題モード</div>
@@ -646,29 +594,6 @@
       <button class="btn grade-btn-natural gap" onclick="manualGrade('NATURAL')">💡 ほぼ正解</button>
       <button class="btn btn-danger" onclick="manualGrade('INCORRECT')">❌ 不正解</button>
     </div>
-  </div>
-</div>
-
-<!-- API KEY MODAL -->
-<div class="modal-overlay" id="apikey-modal-overlay" onclick="closeApikeyModalOutside(event)">
-  <div class="modal">
-    <div class="modal-title">🔑 Claude APIキー設定</div>
-    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:16px;line-height:1.6">
-      AI採点にはClaude APIキーが必要です。<br>
-      キーは端末のlocalStorageにのみ保存され、外部に送信されません。
-    </p>
-    <div class="form-group">
-      <label class="form-label">APIキー</label>
-      <div class="key-input-wrap">
-        <input type="password" id="apikey-input" placeholder="sk-ant-...">
-        <button class="key-toggle" onclick="toggleKeyVisibility()" id="key-toggle-btn">👁</button>
-      </div>
-    </div>
-    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px">
-      ※ キーは <a href="https://console.anthropic.com" target="_blank" style="color:var(--primary)">console.anthropic.com</a> で取得できます
-    </p>
-    <button class="btn btn-primary gap" onclick="saveApiKey()">保存して採点する</button>
-    <button class="btn btn-secondary" onclick="closeApikeyModal()">キャンセル</button>
   </div>
 </div>
 
@@ -817,7 +742,6 @@ function init() {
     dl.appendChild(o);
   });
   updateReviewBtn();
-  updateApikeyBanner();
 }
 
 function updateReviewBtn() {
@@ -929,12 +853,6 @@ async function submitAnswer() {
   if (!userAnswer) return;
 
   stopMic();
-  const apiKey = localStorage.getItem('anthropic_api_key');
-  if (!apiKey) {
-    openApikeyModal(true);
-    return;
-  }
-
   answered = true;
   input.disabled = true;
   document.getElementById('submit-btn').disabled = true;
@@ -942,7 +860,7 @@ async function submitAnswer() {
   document.getElementById('loading-wrap').style.display = 'flex';
 
   try {
-    const result = await gradeWithAI(q.japanese, q.english, userAnswer, apiKey);
+    const result = await gradeWithAI(q.japanese, q.english, userAnswer);
     showAIFeedback(result, q, input);
     document.getElementById('loading-wrap').style.display = 'none';
     document.getElementById('btn-next-wrap').style.display = 'block';
@@ -952,70 +870,23 @@ async function submitAnswer() {
     input.disabled = false;
     document.getElementById('submit-btn').disabled = false;
     document.getElementById('mic-btn').disabled = false;
-
-    if (err.isApiKeyError) {
-      const fb = document.getElementById('feedback');
-      fb.className = 'feedback incorrect';
-      fb.innerHTML = `⚠️ ${escapeHtml(err.message)}<div class="suggestion" style="margin-top:6px"><a href="#" onclick="openApikeyModal();return false" style="color:var(--primary)">APIキーを確認する</a></div>`;
-    } else {
-      // CORS / network error → copy-paste fallback
-      showGradeModal(q, userAnswer);
-    }
+    showGradeModal(q, userAnswer);
   }
 }
 
-async function gradeWithAI(japanese, modelAnswer, userAnswer, apiKey) {
-  const prompt = `You are grading an English translation exercise for a Japanese learner.
-
-Japanese sentence: ${japanese}
-Reference English answer: ${modelAnswer}
-Student's English answer: ${userAnswer}
-
-Grading rules:
-1. CORRECT — meaning matches (even if phrasing differs from reference)
-2. NATURAL — meaning is correct but the expression is unnatural or awkward for an American English speaker. Provide a more natural version.
-3. INCORRECT — meaning is wrong or significantly different. Provide the reference phrase or a common equivalent.
-
-Reply with ONLY valid JSON, no other text:
-{"result":"CORRECT"}
-{"result":"NATURAL","suggestion":"more natural English here"}
-{"result":"INCORRECT","suggestion":"correct English here"}`;
-
-  let res;
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 256,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-  } catch (networkErr) {
-    throw networkErr;
-  }
+async function gradeWithAI(japanese, modelAnswer, userAnswer) {
+  const res = await fetch('/api/grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ japanese, modelAnswer, userAnswer })
+  });
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
-    const msg = errData.error?.message || `HTTP ${res.status}`;
-    if (res.status === 401 || res.status === 403) {
-      const e = new Error('APIキーが無効です。設定を確認してください。');
-      e.isApiKeyError = true;
-      throw e;
-    }
-    throw new Error(msg);
+    throw new Error(errData.error || `HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  const text = data.content[0].text.trim();
-  return JSON.parse(text);
+  return await res.json();
 }
 
 function showAIFeedback(result, q, input) {
@@ -1227,51 +1098,6 @@ function goHome() {
 // ---- UTILS ----
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ---- API KEY ----
-let _pendingSubmit = false;
-
-function openApikeyModal(fromSubmit) {
-  _pendingSubmit = !!fromSubmit;
-  const current = localStorage.getItem('anthropic_api_key') || '';
-  const inp = document.getElementById('apikey-input');
-  inp.type = 'password';
-  inp.value = current;
-  document.getElementById('key-toggle-btn').textContent = '👁';
-  document.getElementById('apikey-modal-overlay').classList.add('open');
-  setTimeout(() => inp.focus(), 200);
-}
-function closeApikeyModal() {
-  document.getElementById('apikey-modal-overlay').classList.remove('open');
-}
-function closeApikeyModalOutside(e) {
-  if (e.target === document.getElementById('apikey-modal-overlay')) closeApikeyModal();
-}
-function toggleKeyVisibility() {
-  const inp = document.getElementById('apikey-input');
-  const btn = document.getElementById('key-toggle-btn');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
-}
-function saveApiKey() {
-  const key = document.getElementById('apikey-input').value.trim();
-  if (!key) { alert('APIキーを入力してください。'); return; }
-  localStorage.setItem('anthropic_api_key', key);
-  closeApikeyModal();
-  updateApikeyBanner();
-  if (_pendingSubmit) {
-    _pendingSubmit = false;
-    answered = false;
-    const input = document.getElementById('answer-input');
-    input.disabled = false;
-    submitAnswer();
-  }
-}
-function updateApikeyBanner() {
-  const banner = document.getElementById('apikey-banner');
-  if (!banner) return;
-  banner.style.display = localStorage.getItem('anthropic_api_key') ? 'none' : 'flex';
 }
 
 // ---- SPEECH RECOGNITION ----
