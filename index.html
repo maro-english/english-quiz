@@ -419,6 +419,29 @@
     font-size: 1rem;
   }
 
+  /* Prompt copy box */
+  .prompt-box {
+    background: #F8FAFC;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.85rem;
+    color: var(--text);
+    white-space: pre-wrap;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: inherit;
+    word-break: break-word;
+  }
+  .grade-btn-natural {
+    background: #FFFBEB;
+    border: 1.5px solid #FCD34D;
+    color: #92400E;
+    font-weight: 700;
+  }
+
   /* Loading state */
   .loading-wrap {
     display: flex;
@@ -603,6 +626,27 @@
     <button class="btn btn-secondary" onclick="goHome()">ホームに戻る</button>
   </div>
 
+</div>
+
+<!-- GRADE MODAL (copy-paste fallback) -->
+<div class="modal-overlay" id="grade-modal-overlay">
+  <div class="modal">
+    <div class="modal-title">📋 AIに採点してもらう</div>
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      以下をコピーして、Claudeに貼り付けて採点してもらってください。
+    </p>
+    <div class="prompt-box" id="grade-prompt"></div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-secondary btn-sm" id="copy-grade-btn" onclick="copyGradePrompt()" style="flex:1">📋 コピー</button>
+      <a href="https://claude.ai" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center">Claudeを開く ›</a>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div class="card-title" style="margin-bottom:12px">採点結果を選択してください</div>
+      <button class="btn btn-success gap" onclick="manualGrade('CORRECT')">✅ 正解</button>
+      <button class="btn grade-btn-natural gap" onclick="manualGrade('NATURAL')">💡 ほぼ正解</button>
+      <button class="btn btn-danger" onclick="manualGrade('INCORRECT')">❌ 不正解</button>
+    </div>
+  </div>
 </div>
 
 <!-- API KEY MODAL -->
@@ -900,12 +944,24 @@ async function submitAnswer() {
   try {
     const result = await gradeWithAI(q.japanese, q.english, userAnswer, apiKey);
     showAIFeedback(result, q, input);
+    document.getElementById('loading-wrap').style.display = 'none';
+    document.getElementById('btn-next-wrap').style.display = 'block';
   } catch (err) {
-    showAIFeedback({ result: 'ERROR', message: err.message }, q, input);
-  }
+    document.getElementById('loading-wrap').style.display = 'none';
+    answered = false;
+    input.disabled = false;
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('mic-btn').disabled = false;
 
-  document.getElementById('loading-wrap').style.display = 'none';
-  document.getElementById('btn-next-wrap').style.display = 'block';
+    if (err.isApiKeyError) {
+      const fb = document.getElementById('feedback');
+      fb.className = 'feedback incorrect';
+      fb.innerHTML = `⚠️ ${escapeHtml(err.message)}<div class="suggestion" style="margin-top:6px"><a href="#" onclick="openApikeyModal();return false" style="color:var(--primary)">APIキーを確認する</a></div>`;
+    } else {
+      // CORS / network error → copy-paste fallback
+      showGradeModal(q, userAnswer);
+    }
+  }
 }
 
 async function gradeWithAI(japanese, modelAnswer, userAnswer, apiKey) {
@@ -925,25 +981,37 @@ Reply with ONLY valid JSON, no other text:
 {"result":"NATURAL","suggestion":"more natural English here"}
 {"result":"INCORRECT","suggestion":"correct English here"}`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-allow-browser': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 256,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
+  // anthropic-dangerous-allow-browser は意図的に省略。
+  // SDK 側のガード用ヘッダーであり、fetch に含めると Safari の CORS
+  // プリフライトで弾かれる場合があるため。
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+  } catch (networkErr) {
+    // TypeError: Load failed / Failed to fetch → CORS or offline
+    throw networkErr;
+  }
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
     const msg = errData.error?.message || `HTTP ${res.status}`;
-    if (res.status === 401) throw new Error('APIキーが無効です。設定を確認してください。');
+    if (res.status === 401 || res.status === 403) {
+      const e = new Error('APIキーが無効です。設定を確認してください。');
+      e.isApiKeyError = true;
+      throw e;
+    }
     throw new Error(msg);
   }
 
@@ -963,22 +1031,87 @@ function showAIFeedback(result, q, input) {
     score++;
     input.className = 'correct';
     fb.className = 'feedback natural';
-    fb.innerHTML = `💡 ほぼ正解！意味はOKです。<div class="suggestion">より自然な表現：${escapeHtml(result.suggestion || '')}</div>`;
-  } else if (result.result === 'INCORRECT') {
+    const s = result.suggestion
+      ? `<div class="suggestion">より自然な表現：${escapeHtml(result.suggestion)}</div>` : '';
+    fb.innerHTML = `💡 ほぼ正解！意味はOKです。${s}`;
+  } else {
+    // INCORRECT
     input.className = 'incorrect';
     fb.className = 'feedback incorrect';
-    fb.innerHTML = `❌ 不正解<div class="suggestion">定番表現：${escapeHtml(result.suggestion || q.english)}</div>`;
+    const s = result.suggestion || q.english;
+    fb.innerHTML = `❌ 不正解<div class="suggestion">定番表現：${escapeHtml(s)}</div>`;
     incorrectPhrases.push(q);
-  } else {
-    // ERROR fallback
-    answered = false;
-    input.disabled = false;
-    document.getElementById('submit-btn').disabled = false;
-    document.getElementById('mic-btn').disabled = false;
-    document.getElementById('btn-next-wrap').style.display = 'none';
-    fb.className = 'feedback incorrect';
-    fb.innerHTML = `⚠️ 採点エラー：${escapeHtml(result.message || '不明なエラー')}<div class="suggestion" style="margin-top:6px"><a href="#" onclick="openApikeyModal();return false" style="color:var(--primary)">APIキーを確認する</a></div>`;
   }
+}
+
+// ---- GRADE MODAL (copy-paste fallback) ----
+let _gradeModalData = null;
+
+function buildGradePrompt(japanese, english, userAnswer) {
+  return `以下の英語翻訳を採点してください。
+
+【日本語】
+${japanese}
+
+【模範解答】
+${english}
+
+【私の解答】
+${userAnswer}
+
+採点基準：
+・意味が合っていれば正解（表現が違ってもOK）
+・意味は正しいが不自然な場合→正解として、より自然なアメリカ英語の表現を教えてください
+・意味が全く違う場合→不正解として、定番フレーズを教えてください
+
+「✅正解」「💡ほぼ正解（より自然な表現：〇〇）」「❌不正解（定番表現：〇〇）」のいずれかで回答してください。`;
+}
+
+function showGradeModal(q, userAnswer) {
+  _gradeModalData = { q, userAnswer };
+  document.getElementById('grade-prompt').textContent = buildGradePrompt(q.japanese, q.english, userAnswer);
+  const copyBtn = document.getElementById('copy-grade-btn');
+  copyBtn.textContent = '📋 コピー';
+  document.getElementById('grade-modal-overlay').classList.add('open');
+}
+
+function closeGradeModal() {
+  document.getElementById('grade-modal-overlay').classList.remove('open');
+}
+
+function copyGradePrompt() {
+  const text = document.getElementById('grade-prompt').textContent;
+  const btn = document.getElementById('copy-grade-btn');
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ コピー済み';
+    setTimeout(() => { btn.textContent = '📋 コピー'; }, 2500);
+  }).catch(() => {
+    // Safari fallback: select all text
+    const el = document.getElementById('grade-prompt');
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = '（テキストを選択しました）';
+  });
+}
+
+function manualGrade(result) {
+  if (!_gradeModalData) return;
+  const { q, userAnswer } = _gradeModalData;
+  closeGradeModal();
+
+  const input = document.getElementById('answer-input');
+  answered = true;
+  input.disabled = true;
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('mic-btn').disabled = true;
+
+  // For manual grading, use reference answer as suggestion for INCORRECT
+  showAIFeedback({ result, suggestion: result === 'INCORRECT' ? q.english : undefined }, q, input);
+  document.getElementById('btn-next-wrap').style.display = 'block';
+  _gradeModalData = null;
 }
 
 function nextQuestion() {
