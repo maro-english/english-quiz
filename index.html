@@ -377,9 +377,113 @@
     transition: color 0.2s;
   }
   .mic-status.active { color: var(--error); font-weight: 600; }
+  .btn-mic.listening {
+    background: #DC2626;
+    border-color: #DC2626;
+    color: white;
+    animation: mic-blink 0.9s step-start infinite;
+  }
   @keyframes mic-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); }
     50%       { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+  }
+  @keyframes mic-blink {
+    0%, 49% { background: #DC2626; color: white; }
+    50%, 100% { background: #FEE2E2; color: #DC2626; }
+  }
+  .mic-label {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--error);
+    letter-spacing: 0.05em;
+    animation: mic-blink-text 0.9s step-start infinite;
+  }
+  @keyframes mic-blink-text {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.3; }
+  }
+
+  /* Feedback — natural (ほぼ正解) */
+  .feedback.natural {
+    background: #FFFBEB;
+    border: 1.5px solid #FCD34D;
+    color: #92400E;
+    display: block;
+  }
+  .feedback .suggestion {
+    margin-top: 8px;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 1rem;
+  }
+
+  /* Loading state */
+  .loading-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  /* API Key modal */
+  .apikey-banner {
+    background: #FFFBEB;
+    border: 1.5px solid #FCD34D;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    color: #92400E;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .apikey-banner b { flex: 1; }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .settings-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+  .settings-btn:hover { background: var(--border); }
+  .key-input-wrap { position: relative; }
+  .key-input-wrap input { padding-right: 48px; }
+  .key-toggle {
+    position: absolute;
+    right: 12px; top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--muted);
+    padding: 2px;
   }
 </style>
 </head>
@@ -388,8 +492,16 @@
 
   <!-- HOME -->
   <div id="page-home" class="page active">
-    <h1>🗣 英語フレーズクイズ</h1>
+    <div class="settings-row">
+      <h1 style="margin-bottom:0">🗣 英語フレーズクイズ</h1>
+      <button class="settings-btn" onclick="openApikeyModal()" title="APIキー設定">⚙️</button>
+    </div>
     <p class="subtitle">日本語 → 英語に訳してみよう</p>
+    <div class="apikey-banner" id="apikey-banner" onclick="openApikeyModal()" style="display:none">
+      <span>⚠️</span>
+      <b>AIキーが未設定です。タップして設定するとAI採点が使えます。</b>
+      <span>›</span>
+    </div>
 
     <div class="card">
       <div class="card-title">出題モード</div>
@@ -445,10 +557,15 @@
 
     <div id="btn-submit-wrap">
       <div class="btn-row">
-        <button class="btn btn-primary" onclick="submitAnswer()">答え合わせ</button>
+        <button class="btn btn-primary" id="submit-btn" onclick="submitAnswer()">答え合わせ</button>
         <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="音声入力">🎤</button>
       </div>
-      <div class="mic-status" id="mic-status"></div>
+      <div style="text-align:center;min-height:24px;margin-top:6px">
+        <span class="mic-label" id="mic-label" style="display:none">● REC</span>
+        <div class="loading-wrap" id="loading-wrap" style="display:none">
+          <div class="spinner"></div><span>AIが採点中...</span>
+        </div>
+      </div>
     </div>
     <div id="btn-next-wrap" style="display:none">
       <button class="btn btn-primary" onclick="nextQuestion()">次の問題 →</button>
@@ -486,6 +603,29 @@
     <button class="btn btn-secondary" onclick="goHome()">ホームに戻る</button>
   </div>
 
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apikey-modal-overlay" onclick="closeApikeyModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">🔑 Claude APIキー設定</div>
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      AI採点にはClaude APIキーが必要です。<br>
+      キーは端末のlocalStorageにのみ保存され、外部に送信されません。
+    </p>
+    <div class="form-group">
+      <label class="form-label">APIキー</label>
+      <div class="key-input-wrap">
+        <input type="password" id="apikey-input" placeholder="sk-ant-...">
+        <button class="key-toggle" onclick="toggleKeyVisibility()" id="key-toggle-btn">👁</button>
+      </div>
+    </div>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px">
+      ※ キーは <a href="https://console.anthropic.com" target="_blank" style="color:var(--primary)">console.anthropic.com</a> で取得できます
+    </p>
+    <button class="btn btn-primary gap" onclick="saveApiKey()">保存して採点する</button>
+    <button class="btn btn-secondary" onclick="closeApikeyModal()">キャンセル</button>
+  </div>
 </div>
 
 <!-- ADD MODAL -->
@@ -633,6 +773,7 @@ function init() {
     dl.appendChild(o);
   });
   updateReviewBtn();
+  updateApikeyBanner();
 }
 
 function updateReviewBtn() {
@@ -728,38 +869,115 @@ function renderQuestion() {
 
   document.getElementById('btn-submit-wrap').style.display = 'block';
   document.getElementById('btn-next-wrap').style.display = 'none';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('mic-btn').disabled = false;
+  document.getElementById('loading-wrap').style.display = 'none';
 
   setTimeout(() => input.focus(), 100);
 }
 
 // ---- SUBMIT ANSWER ----
-function submitAnswer() {
+async function submitAnswer() {
   if (answered) return;
   const q = quizList[currentIndex];
   const input = document.getElementById('answer-input');
   const userAnswer = input.value.trim();
   if (!userAnswer) return;
 
+  stopMic();
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if (!apiKey) {
+    openApikeyModal(true);
+    return;
+  }
+
   answered = true;
   input.disabled = true;
-  document.getElementById('btn-submit-wrap').style.display = 'none';
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('mic-btn').disabled = true;
+  document.getElementById('loading-wrap').style.display = 'flex';
+
+  try {
+    const result = await gradeWithAI(q.japanese, q.english, userAnswer, apiKey);
+    showAIFeedback(result, q, input);
+  } catch (err) {
+    showAIFeedback({ result: 'ERROR', message: err.message }, q, input);
+  }
+
+  document.getElementById('loading-wrap').style.display = 'none';
   document.getElementById('btn-next-wrap').style.display = 'block';
+}
 
-  const correct = q.english;
-  const isCorrect = userAnswer === correct;
+async function gradeWithAI(japanese, modelAnswer, userAnswer, apiKey) {
+  const prompt = `You are grading an English translation exercise for a Japanese learner.
 
+Japanese sentence: ${japanese}
+Reference English answer: ${modelAnswer}
+Student's English answer: ${userAnswer}
+
+Grading rules:
+1. CORRECT — meaning matches (even if phrasing differs from reference)
+2. NATURAL — meaning is correct but the expression is unnatural or awkward for an American English speaker. Provide a more natural version.
+3. INCORRECT — meaning is wrong or significantly different. Provide the reference phrase or a common equivalent.
+
+Reply with ONLY valid JSON, no other text:
+{"result":"CORRECT"}
+{"result":"NATURAL","suggestion":"more natural English here"}
+{"result":"INCORRECT","suggestion":"correct English here"}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-allow-browser': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const msg = errData.error?.message || `HTTP ${res.status}`;
+    if (res.status === 401) throw new Error('APIキーが無効です。設定を確認してください。');
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const text = data.content[0].text.trim();
+  return JSON.parse(text);
+}
+
+function showAIFeedback(result, q, input) {
   const fb = document.getElementById('feedback');
-
-  if (isCorrect) {
+  if (result.result === 'CORRECT') {
     score++;
     input.className = 'correct';
     fb.className = 'feedback correct';
     fb.innerHTML = '✅ 正解！';
-  } else {
+  } else if (result.result === 'NATURAL') {
+    score++;
+    input.className = 'correct';
+    fb.className = 'feedback natural';
+    fb.innerHTML = `💡 ほぼ正解！意味はOKです。<div class="suggestion">より自然な表現：${escapeHtml(result.suggestion || '')}</div>`;
+  } else if (result.result === 'INCORRECT') {
     input.className = 'incorrect';
     fb.className = 'feedback incorrect';
-    fb.innerHTML = `❌ 不正解<div class="answer">正解：${escapeHtml(correct)}</div>`;
+    fb.innerHTML = `❌ 不正解<div class="suggestion">定番表現：${escapeHtml(result.suggestion || q.english)}</div>`;
     incorrectPhrases.push(q);
+  } else {
+    // ERROR fallback
+    answered = false;
+    input.disabled = false;
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('mic-btn').disabled = false;
+    document.getElementById('btn-next-wrap').style.display = 'none';
+    fb.className = 'feedback incorrect';
+    fb.innerHTML = `⚠️ 採点エラー：${escapeHtml(result.message || '不明なエラー')}<div class="suggestion" style="margin-top:6px"><a href="#" onclick="openApikeyModal();return false" style="color:var(--primary)">APIキーを確認する</a></div>`;
   }
 }
 
@@ -880,6 +1098,51 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ---- API KEY ----
+let _pendingSubmit = false;
+
+function openApikeyModal(fromSubmit) {
+  _pendingSubmit = !!fromSubmit;
+  const current = localStorage.getItem('anthropic_api_key') || '';
+  const inp = document.getElementById('apikey-input');
+  inp.type = 'password';
+  inp.value = current;
+  document.getElementById('key-toggle-btn').textContent = '👁';
+  document.getElementById('apikey-modal-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 200);
+}
+function closeApikeyModal() {
+  document.getElementById('apikey-modal-overlay').classList.remove('open');
+}
+function closeApikeyModalOutside(e) {
+  if (e.target === document.getElementById('apikey-modal-overlay')) closeApikeyModal();
+}
+function toggleKeyVisibility() {
+  const inp = document.getElementById('apikey-input');
+  const btn = document.getElementById('key-toggle-btn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+function saveApiKey() {
+  const key = document.getElementById('apikey-input').value.trim();
+  if (!key) { alert('APIキーを入力してください。'); return; }
+  localStorage.setItem('anthropic_api_key', key);
+  closeApikeyModal();
+  updateApikeyBanner();
+  if (_pendingSubmit) {
+    _pendingSubmit = false;
+    answered = false;
+    const input = document.getElementById('answer-input');
+    input.disabled = false;
+    submitAnswer();
+  }
+}
+function updateApikeyBanner() {
+  const banner = document.getElementById('apikey-banner');
+  if (!banner) return;
+  banner.style.display = localStorage.getItem('anthropic_api_key') ? 'none' : 'flex';
+}
+
 // ---- SPEECH RECOGNITION ----
 let recognition = null;
 let isListening = false;
@@ -966,18 +1229,17 @@ function startListening() {
 
 function setMicBtn(listening) {
   const btn = document.getElementById('mic-btn');
+  const label = document.getElementById('mic-label');
   if (!btn) return;
   if (!hasSpeech) { btn.classList.add('unsupported'); return; }
   btn.classList.toggle('listening', listening);
   btn.textContent = listening ? '⏹' : '🎤';
-  btn.title = listening ? '停止' : '音声入力';
+  btn.title = listening ? '録音停止' : '音声入力';
+  if (label) label.style.display = listening ? 'inline-block' : 'none';
 }
 
 function setMicStatus(msg, active) {
-  const el = document.getElementById('mic-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.toggle('active', !!active);
+  // mic-status removed; label handles visual state now
 }
 
 // ---- BOOT ----
