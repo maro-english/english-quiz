@@ -1,3 +1,29 @@
+const https = require('https');
+
+// Node.js built-in https — works on all runtimes regardless of Node.js version
+function httpsPost(hostname, path, headers, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = https.request(
+      {
+        hostname,
+        port: 443,
+        path,
+        method: 'POST',
+        headers: { ...headers, 'Content-Length': Buffer.byteLength(data) },
+      },
+      (res) => {
+        let chunks = '';
+        res.on('data', (c) => { chunks += c; });
+        res.on('end', () => resolve({ status: res.statusCode, text: chunks }));
+      }
+    );
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -6,7 +32,6 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -16,7 +41,14 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY が Vercel 環境変数に設定されていません。' });
   }
 
-  const { japanese, modelAnswer, userAnswer } = req.body || {};
+  // req.body may be a string or already-parsed object depending on Vercel runtime
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+  body = body || {};
+
+  const { japanese, modelAnswer, userAnswer } = body;
   if (!japanese || !modelAnswer || !userAnswer) {
     return res.status(400).json({ error: 'japanese / modelAnswer / userAnswer が必要です。' });
   }
@@ -38,32 +70,44 @@ Reply with ONLY valid JSON, no other text:
 {"result":"INCORRECT","suggestion":"correct English here"}`;
 
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
+    const { status, text } = await httpsPost(
+      'api.anthropic.com',
+      '/v1/messages',
+      {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+      {
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 256,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
+        messages: [{ role: 'user', content: prompt }],
+      }
+    );
 
-    const data = await upstream.json();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(500).json({ error: `Anthropic レスポンスのパース失敗: ${text.slice(0, 200)}` });
+    }
 
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({
-        error: data.error?.message || `Anthropic API error: ${upstream.status}`
+    if (status !== 200) {
+      return res.status(status).json({
+        error: data.error?.message || `Anthropic API error: HTTP ${status}`,
       });
     }
 
-    const text = data.content[0].text.trim();
-    const result = JSON.parse(text);
+    const aiText = data.content[0].text.trim();
+    let result;
+    try {
+      result = JSON.parse(aiText);
+    } catch {
+      return res.status(500).json({ error: `AI 採点結果のパース失敗: ${aiText.slice(0, 200)}` });
+    }
+
     return res.status(200).json(result);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: `サーバーエラー: ${e.message}` });
   }
 };
