@@ -1,6 +1,19 @@
 const https = require('https');
 
-// Node.js built-in https — works on all runtimes regardless of Node.js version
+// Read raw request body from stream (needed when Content-Type is not application/json)
+function readBody(req) {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      try { resolve(JSON.parse(raw)); }
+      catch { resolve({}); }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
+// Node.js built-in HTTPS — no fetch(), works on every Node version
 function httpsPost(hostname, path, headers, body) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
@@ -25,33 +38,38 @@ function httpsPost(hostname, path, headers, body) {
 }
 
 module.exports = async function handler(req, res) {
+  // CORS headers on every response
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
+  // --- API key ---
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY が Vercel 環境変数に設定されていません。' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY が未設定です。Vercel 環境変数を確認してください。' });
   }
 
-  // req.body may be a string or already-parsed object depending on Vercel runtime
+  // --- Parse body ---
+  // req.body is pre-parsed for application/json.
+  // For text/plain (our "simple request" trick) it may be a string or undefined.
   let body = req.body;
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch { body = {}; }
+  } else if (body == null) {
+    body = await readBody(req);
   }
-  body = body || {};
 
-  const { japanese, modelAnswer, userAnswer } = body;
+  const { japanese, modelAnswer, userAnswer } = body || {};
   if (!japanese || !modelAnswer || !userAnswer) {
     return res.status(400).json({ error: 'japanese / modelAnswer / userAnswer が必要です。' });
   }
 
+  // --- Prompt ---
   const prompt = `You are grading an English translation exercise for a Japanese learner.
 
 Japanese sentence: ${japanese}
@@ -68,6 +86,7 @@ Reply with ONLY valid JSON, no other text:
 {"result":"NATURAL","suggestion":"more natural English here"}
 {"result":"INCORRECT","suggestion":"correct English here"}`;
 
+  // --- Call Anthropic ---
   try {
     const { status, text } = await httpsPost(
       'api.anthropic.com',
@@ -97,9 +116,10 @@ Reply with ONLY valid JSON, no other text:
       });
     }
 
+    // Strip markdown code fences if present (e.g. ```json ... ```)
     const aiRaw = data.content[0].text.trim();
-    // Strip markdown code fences (```json ... ``` or ``` ... ```)
     const aiText = aiRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
     let result;
     try {
       result = JSON.parse(aiText);

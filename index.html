@@ -883,9 +883,11 @@ async function submitAnswer() {
 }
 
 async function gradeWithAI(japanese, modelAnswer, userAnswer) {
+  // text/plain = "simple request" — no CORS preflight (OPTIONS) needed.
+  // This eliminates the intermittent 405 from Vercel's edge on OPTIONS.
   const res = await fetch('/api/grade', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ japanese, modelAnswer, userAnswer })
   });
 
