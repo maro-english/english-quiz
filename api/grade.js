@@ -95,7 +95,9 @@ Reply with ONLY valid JSON, no other text:
       });
     }
 
-    const aiText = data.content[0].text.trim();
+    const aiRaw = data.content[0].text.trim();
+    // Strip markdown code fences (```json ... ``` or ``` ... ```)
+    const aiText = aiRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     let result;
     try {
       result = JSON.parse(aiText);
