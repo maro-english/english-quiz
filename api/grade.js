@@ -65,12 +65,15 @@ Student's English answer: ${userAnswer}
 
 Grading rules:
 1. CORRECT — meaning matches (even if phrasing differs from reference)
-2. NATURAL — meaning is correct but phrasing is awkward or unnatural for an American English speaker. Provide a more natural version.
+2. NATURAL — meaning is correct but phrasing is awkward or unnatural for an American English speaker.
+   Provide:
+   - "nuance": a brief Japanese explanation of what the student's answer sounds like to a native speaker (e.g. "少しぎこちなく聞こえます" or "フォーマルすぎる印象です")
+   - "suggestion": a more natural American English version
 3. INCORRECT — meaning is wrong or significantly different. Provide the reference phrase or a common equivalent.
 
 Reply with ONLY valid JSON, no other text:
 {"result":"CORRECT"}
-{"result":"NATURAL","suggestion":"more natural English here"}
+{"result":"NATURAL","nuance":"日本語でニュアンス説明","suggestion":"more natural English here"}
 {"result":"INCORRECT","suggestion":"correct English here"}`;
 
   try {
