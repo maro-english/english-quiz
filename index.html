@@ -139,7 +139,9 @@
     cursor: pointer;
   }
   select:focus { outline: none; border-color: var(--primary); }
-  input[type="text"] {
+
+  /* ★ textarea（旧 input[type="text"]）*/
+  textarea#answer-input {
     width: 100%;
     padding: 14px 16px;
     border: 2px solid var(--border);
@@ -148,10 +150,24 @@
     color: var(--text);
     background: white;
     transition: border-color 0.15s;
+    resize: none;          /* ユーザーによるリサイズ禁止 */
+    min-height: 56px;      /* 1行分の最低高さ */
+    line-height: 1.6;
+    font-family: inherit;
+    overflow-y: hidden;    /* 自動伸縮のため */
   }
-  input[type="text"]:focus { outline: none; border-color: var(--primary); }
-  input[type="text"].correct { border-color: var(--success); background: var(--success-bg); }
-  input[type="text"].incorrect { border-color: var(--error); background: var(--error-bg); }
+  textarea#answer-input:focus { outline: none; border-color: var(--primary); }
+  textarea#answer-input.correct { border-color: var(--success); background: var(--success-bg); }
+  textarea#answer-input.incorrect { border-color: var(--error); background: var(--error-bg); }
+
+  /* ★ 改行ヒント */
+  .input-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
 
   /* Progress bar */
   .progress-wrap {
@@ -303,6 +319,18 @@
     margin-bottom: 6px;
     display: block;
   }
+  /* モーダル内のinput */
+  .modal input[type="text"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 1.05rem;
+    color: var(--text);
+    background: white;
+    transition: border-color 0.15s;
+  }
+  .modal input[type="text"]:focus { outline: none; border-color: var(--primary); }
 
   /* Page visibility */
   .page { display: none; }
@@ -521,8 +549,19 @@
       <div class="category-badge" id="q-category"></div>
       <div class="japanese-text" id="q-japanese"></div>
 
-      <input type="text" id="answer-input" placeholder="英語で入力..." autocomplete="off" autocorrect="off" spellcheck="false"
-        onkeydown="if(event.key==='Enter') submitAnswer()">
+      <!-- ★ textarea に変更（改行・予測変換・自動修正対応） -->
+      <textarea
+        id="answer-input"
+        placeholder="英語で入力..."
+        rows="2"
+        autocomplete="on"
+        autocorrect="on"
+        autocapitalize="sentences"
+        spellcheck="true"
+      ></textarea>
+      <!-- ★ 改行ヒント -->
+      <div class="input-hint">改行：Enterキー ／ 答え合わせ：下のボタン</div>
+
       <div class="feedback" id="feedback"></div>
     </div>
 
@@ -535,6 +574,7 @@
         <span class="mic-label" id="mic-label" style="display:none">● REC</span>
         <div class="loading-wrap" id="loading-wrap" style="display:none">
           <div class="spinner"></div><span>AIが採点中...</span>
+          <button class="btn btn-secondary btn-sm" onclick="cancelAnswer()" style="margin-left:12px;width:auto;padding:6px 14px;font-size:0.85rem">キャンセル</button>
         </div>
       </div>
     </div>
@@ -831,6 +871,8 @@ function renderQuestion() {
   input.value = '';
   input.className = '';
   input.disabled = false;
+  // ★ textarea の高さをリセット
+  input.style.height = 'auto';
 
   document.getElementById('feedback').className = 'feedback';
   document.getElementById('feedback').innerHTML = '';
@@ -844,7 +886,91 @@ function renderQuestion() {
   setTimeout(() => input.focus(), 100);
 }
 
+// ---- ★ 自動修正テーブル ----
+const AUTO_CORRECTIONS = [
+  [/\bIm\b(?!')/g,       "I'm"],
+  [/\bim\b(?!')/g,       "I'm"],
+  [/\bIts\b(?!')/g,      "It's"],
+  [/\bits\b(?!')/g,      "it's"],
+  [/\bdont\b/g,          "don't"],
+  [/\bDont\b/g,          "Don't"],
+  [/\bIll\b(?!')/g,      "I'll"],
+  [/\bill\b(?!')/g,      "i'll"],
+  [/\bIve\b(?!')/g,      "I've"],
+  [/\bive\b(?!')/g,      "i've"],
+  [/\bcant\b/g,          "can't"],
+  [/\bCant\b/g,          "Can't"],
+  [/\bwont\b/g,          "won't"],
+  [/\bWont\b/g,          "Won't"],
+  [/\bdidnt\b/g,         "didn't"],
+  [/\bDidnt\b/g,         "Didn't"],
+  [/\bisnt\b/g,          "isn't"],
+  [/\bIsnt\b/g,          "Isn't"],
+  [/\bwasnt\b/g,         "wasn't"],
+  [/\bWasnt\b/g,         "Wasn't"],
+  [/\byoure\b/g,         "you're"],
+  [/\bYoure\b/g,         "You're"],
+  [/\btheyre\b/g,        "they're"],
+  [/\bTheyre\b/g,        "They're"],
+  [/\bdoesnt\b/g,        "doesn't"],
+  [/\bDoesnt\b/g,        "Doesn't"],
+  [/\bcouldnt\b/g,       "couldn't"],
+  [/\bCouldnt\b/g,       "Couldn't"],
+  [/\bwouldnt\b/g,       "wouldn't"],
+  [/\bWouldnt\b/g,       "Wouldn't"],
+];
+
+function applyAutoCorrect(val) {
+  let fixed = val;
+  for (const [pattern, replacement] of AUTO_CORRECTIONS) {
+    fixed = fixed.replace(pattern, replacement);
+  }
+  return fixed;
+}
+
+// ---- ★ textarea 自動伸縮 + 自動修正 ----
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('answer-input');
+  if (!input) return;
+
+  input.addEventListener('input', () => {
+    // 自動伸縮
+    input.style.height = 'auto';
+    input.style.height = input.scrollHeight + 'px';
+
+    // 自動修正（単語境界で確定済みの部分のみ修正）
+    const val = input.value;
+    // スペース・改行・句読点の後にあるものだけ修正（入力中の単語はスキップ）
+    const lastChar = val[val.length - 1];
+    if (lastChar === ' ' || lastChar === '\n' || lastChar === '.' || lastChar === ',' || lastChar === '?') {
+      const fixed = applyAutoCorrect(val);
+      if (fixed !== val) {
+        const pos = input.selectionStart + (fixed.length - val.length);
+        input.value = fixed;
+        input.selectionStart = input.selectionEnd = Math.max(0, pos);
+      }
+    }
+  });
+});
+
 // ---- SUBMIT ANSWER ----
+let abortController = null;
+
+function cancelAnswer() {
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  answered = false;
+  const input = document.getElementById('answer-input');
+  input.disabled = false;
+  input.focus();
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('mic-btn').disabled = false;
+  document.getElementById('loading-wrap').style.display = 'none';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '';
+}
 async function submitAnswer() {
   if (answered) return;
   const q = quizList[currentIndex];
@@ -859,13 +985,20 @@ async function submitAnswer() {
   document.getElementById('mic-btn').disabled = true;
   document.getElementById('loading-wrap').style.display = 'flex';
 
+  abortController = new AbortController();
+
   try {
-    const result = await gradeWithAI(q.japanese, q.english, userAnswer);
+    const result = await gradeWithAI(q.japanese, q.english, userAnswer, abortController.signal);
+    abortController = null;
     showAIFeedback(result, q, input);
     document.getElementById('loading-wrap').style.display = 'none';
     document.getElementById('btn-next-wrap').style.display = 'block';
   } catch (err) {
+    abortController = null;
     document.getElementById('loading-wrap').style.display = 'none';
+    // キャンセルの場合は何もしない（cancelAnswer()側で処理済み）
+    if (err.name === 'AbortError') return;
+
     answered = false;
     input.disabled = false;
     document.getElementById('submit-btn').disabled = false;
@@ -882,13 +1015,12 @@ async function submitAnswer() {
   }
 }
 
-async function gradeWithAI(japanese, modelAnswer, userAnswer) {
-  // text/plain = "simple request" — no CORS preflight (OPTIONS) needed.
-  // This eliminates the intermittent 405 from Vercel's edge on OPTIONS.
+async function gradeWithAI(japanese, modelAnswer, userAnswer, signal) {
   const res = await fetch('/api/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ japanese, modelAnswer, userAnswer })
+    body: JSON.stringify({ japanese, modelAnswer, userAnswer }),
+    signal,
   });
 
   if (!res.ok) {
@@ -910,11 +1042,13 @@ function showAIFeedback(result, q, input) {
     score++;
     input.className = 'correct';
     fb.className = 'feedback natural';
-    const s = result.suggestion
-      ? `<div class="suggestion">より自然な表現：${escapeHtml(result.suggestion)}</div>` : '';
-    fb.innerHTML = `💡 ほぼ正解！意味はOKです。${s}`;
+    // ★ nuance（あなたの答えのニュアンス説明）も表示
+    const nuanceHtml = result.nuance
+      ? `<div style="margin-top:8px;font-size:0.9rem;color:#78350F;line-height:1.6">👤 あなたの答えだと：${escapeHtml(result.nuance)}</div>` : '';
+    const suggestionHtml = result.suggestion
+      ? `<div class="suggestion">✨ より自然な表現：${escapeHtml(result.suggestion)}</div>` : '';
+    fb.innerHTML = `💡 ほぼ正解！意味はOKです。${nuanceHtml}${suggestionHtml}`;
   } else {
-    // INCORRECT
     input.className = 'incorrect';
     fb.className = 'feedback incorrect';
     const s = result.suggestion || q.english;
@@ -940,10 +1074,16 @@ ${userAnswer}
 
 採点基準：
 ・意味が合っていれば正解（表現が違ってもOK）
-・意味は正しいが不自然な場合→正解として、より自然なアメリカ英語の表現を教えてください
+・意味は正しいが不自然な場合→「ほぼ正解」として以下を教えてください：
+  1. 私の答えだとどんなニュアンスになるか（日本語で簡潔に）
+  2. より自然なアメリカ英語の表現
+  3. なぜそちらが自然なのかの理由（一言で）
 ・意味が全く違う場合→不正解として、定番フレーズを教えてください
 
-「✅正解」「💡ほぼ正解（より自然な表現：〇〇）」「❌不正解（定番表現：〇〇）」のいずれかで回答してください。`;
+「✅正解」
+「💡ほぼ正解（あなたの答えのニュアンス：〇〇 ／ より自然な表現：〇〇 ／ 理由：〇〇）」
+「❌不正解（定番表現：〇〇）」
+のいずれかで回答してください。`;
 }
 
 function showGradeModal(q, userAnswer) {
@@ -965,7 +1105,6 @@ function copyGradePrompt() {
     btn.textContent = '✅ コピー済み';
     setTimeout(() => { btn.textContent = '📋 コピー'; }, 2500);
   }).catch(() => {
-    // Safari fallback: select all text
     const el = document.getElementById('grade-prompt');
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -987,7 +1126,6 @@ function manualGrade(result) {
   document.getElementById('submit-btn').disabled = true;
   document.getElementById('mic-btn').disabled = true;
 
-  // For manual grading, use reference answer as suggestion for INCORRECT
   showAIFeedback({ result, suggestion: result === 'INCORRECT' ? q.english : undefined }, q, input);
   document.getElementById('btn-next-wrap').style.display = 'block';
   _gradeModalData = null;
@@ -1004,24 +1142,15 @@ function nextQuestion() {
 
 // ---- RESULT ----
 function showResult() {
-  // Update persistent incorrect list
   if (!isReviewMode) {
     const existing = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
-    // Remove phrases that were answered correctly this session
-    const incorrectIds = new Set(incorrectPhrases.map(p => p.id + '|' + p.japanese));
-    const correctIds = new Set(
-      quizList.filter((_, i) => i < quizList.length).map(p => p.id + '|' + p.japanese)
-    );
-    // All questions answered correctly get removed from persistent store
     const answeredCorrectly = quizList.filter(p => !incorrectPhrases.some(x => x.japanese === p.japanese));
     let updated = existing.filter(p => !answeredCorrectly.some(x => x.japanese === p.japanese));
-    // Add new incorrects (dedup)
     incorrectPhrases.forEach(p => {
       if (!updated.some(x => x.japanese === p.japanese)) updated.push(p);
     });
     localStorage.setItem('incorrect_phrases', JSON.stringify(updated));
   } else {
-    // In review mode: remove those answered correctly
     const existing = JSON.parse(localStorage.getItem('incorrect_phrases') || '[]');
     const answeredCorrectly = quizList.filter(p => !incorrectPhrases.some(x => x.japanese === p.japanese));
     let updated = existing.filter(p => !answeredCorrectly.some(x => x.japanese === p.japanese));
@@ -1136,7 +1265,6 @@ function toggleMic() {
 
 function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  // iOS Safari requires a fresh instance each session
   recognition = new SR();
   recognition.lang = 'en-US';
   recognition.continuous = false;
@@ -1146,7 +1274,6 @@ function startListening() {
   recognition.onstart = () => {
     isListening = true;
     setMicBtn(true);
-    setMicStatus('🎤 話してください...', true);
   };
 
   recognition.onresult = (e) => {
@@ -1157,30 +1284,21 @@ function startListening() {
       else interim += t;
     }
     const input = document.getElementById('answer-input');
-    // Prefer final; fall back to interim for live preview
     if (final) input.value = final;
     else if (interim) input.value = interim;
+    // 音声入力後も自動伸縮
+    input.style.height = 'auto';
+    input.style.height = input.scrollHeight + 'px';
   };
 
   recognition.onerror = (e) => {
     isListening = false;
     setMicBtn(false);
-    if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-      setMicStatus('❌ マイクの使用を許可してください', false);
-    } else if (e.error === 'no-speech') {
-      setMicStatus('音声が検出されませんでした', false);
-    } else if (e.error === 'network') {
-      setMicStatus('ネットワークエラー（HTTPSが必要です）', false);
-    } else {
-      setMicStatus('', false);
-    }
-    setTimeout(() => setMicStatus('', false), 3000);
   };
 
   recognition.onend = () => {
     isListening = false;
     setMicBtn(false);
-    setMicStatus('', false);
     recognition = null;
   };
 
@@ -1189,8 +1307,6 @@ function startListening() {
   } catch (e) {
     isListening = false;
     setMicBtn(false);
-    setMicStatus('音声入力を開始できませんでした', false);
-    setTimeout(() => setMicStatus('', false), 3000);
   }
 }
 
@@ -1205,9 +1321,7 @@ function setMicBtn(listening) {
   if (label) label.style.display = listening ? 'inline-block' : 'none';
 }
 
-function setMicStatus(msg, active) {
-  // mic-status removed; label handles visual state now
-}
+function setMicStatus(msg, active) {}
 
 // ---- BOOT ----
 init();
