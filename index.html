@@ -641,21 +641,43 @@
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
   <div class="modal">
     <div class="modal-title">フレーズを追加</div>
-    <div class="form-group">
-      <label class="form-label">日本語</label>
-      <input type="text" id="add-jp" placeholder="日本語のフレーズ">
+
+    <!-- STEP 1: 日本語入力 -->
+    <div id="add-step1">
+      <div class="form-group">
+        <label class="form-label">日本語フレーズを入力</label>
+        <input type="text" id="add-jp" placeholder="例：道を挟んだ向かいにあります。"
+          onkeydown="if(event.key==='Enter') generateEnglish()">
+      </div>
+      <button class="btn btn-primary gap" onclick="generateEnglish()" id="generate-btn">
+        ✨ 英語を自動生成
+      </button>
+      <div class="loading-wrap" id="add-loading" style="display:none">
+        <div class="spinner"></div><span>AIが英語を考えています...</span>
+      </div>
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">英語</label>
-      <input type="text" id="add-en" placeholder="English phrase">
+
+    <!-- STEP 2: 生成結果確認 -->
+    <div id="add-step2" style="display:none">
+      <div class="form-group">
+        <label class="form-label">日本語</label>
+        <div id="add-jp-preview" style="font-size:1rem;font-weight:600;padding:10px 0;color:var(--text);line-height:1.5"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">英語（修正できます）</label>
+        <input type="text" id="add-en" placeholder="English phrase">
+      </div>
+      <div class="form-group">
+        <label class="form-label">カテゴリ（修正できます）</label>
+        <input type="text" id="add-cat" placeholder="カテゴリ名" list="cat-list">
+        <datalist id="cat-list"></datalist>
+      </div>
+      <button class="btn btn-primary gap" onclick="savePhrase()">✅ 登録する</button>
+      <button class="btn btn-secondary gap" onclick="backToStep1()">← 日本語を修正</button>
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">カテゴリ</label>
-      <input type="text" id="add-cat" placeholder="カテゴリ名（例：その他表現）" list="cat-list">
-      <datalist id="cat-list"></datalist>
-    </div>
-    <button class="btn btn-primary gap" onclick="savePhrase()">登録する</button>
-    <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+
   </div>
 </div>
 
@@ -1196,12 +1218,64 @@ function showResult() {
 
 // ---- ADD PHRASE ----
 function openAddModal() {
+  // STEP1に戻す
   document.getElementById('add-jp').value = '';
   document.getElementById('add-en').value = '';
   document.getElementById('add-cat').value = '';
+  document.getElementById('add-step1').style.display = 'block';
+  document.getElementById('add-step2').style.display = 'none';
+  document.getElementById('add-loading').style.display = 'none';
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(() => document.getElementById('add-jp').focus(), 200);
 }
+
+function backToStep1() {
+  document.getElementById('add-step1').style.display = 'block';
+  document.getElementById('add-step2').style.display = 'none';
+  setTimeout(() => document.getElementById('add-jp').focus(), 100);
+}
+
+async function generateEnglish() {
+  const jp = document.getElementById('add-jp').value.trim();
+  if (!jp) { alert('日本語フレーズを入力してください。'); return; }
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  document.getElementById('add-loading').style.display = 'flex';
+
+  try {
+    const res = await fetch('/api/grade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        japanese: jp,
+        modelAnswer: '__generate__',
+        userAnswer: '__generate__',
+        mode: 'generate'
+      })
+    });
+
+    const data = await res.json();
+    document.getElementById('add-loading').style.display = 'none';
+    btn.disabled = false;
+
+    if (data.english) {
+      document.getElementById('add-jp-preview').textContent = jp;
+      document.getElementById('add-en').value = data.english;
+      document.getElementById('add-cat').value = data.category || 'その他表現';
+      document.getElementById('add-step1').style.display = 'none';
+      document.getElementById('add-step2').style.display = 'block';
+      setTimeout(() => document.getElementById('add-en').focus(), 100);
+    } else {
+      alert('英語の生成に失敗しました。もう一度試してください。');
+    }
+  } catch (e) {
+    document.getElementById('add-loading').style.display = 'none';
+    btn.disabled = false;
+    alert('エラーが発生しました：' + e.message);
+  }
+}
+
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
@@ -1209,7 +1283,8 @@ function closeModalOutside(e) {
   if (e.target === document.getElementById('modal-overlay')) closeModal();
 }
 function savePhrase() {
-  const jp = document.getElementById('add-jp').value.trim();
+  const jp = document.getElementById('add-jp').value.trim()
+          || document.getElementById('add-jp-preview').textContent.trim();
   const en = document.getElementById('add-en').value.trim();
   const cat = document.getElementById('add-cat').value.trim() || 'その他表現';
   if (!jp || !en) { alert('日本語と英語を入力してください。'); return; }
