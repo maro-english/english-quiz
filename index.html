@@ -579,7 +579,8 @@
       </div>
     </div>
     <div id="btn-next-wrap" style="display:none">
-      <button class="btn btn-primary" onclick="nextQuestion()">次の問題 →</button>
+      <button class="btn btn-primary gap" onclick="nextQuestion()">次の問題 →</button>
+      <button class="btn btn-secondary" onclick="retryQuestion()" id="retry-btn">🔄 もう一度入力する</button>
     </div>
 
     <button class="btn btn-secondary" onclick="goHome()" style="margin-top:10px; background:transparent; color:var(--muted); box-shadow:none; font-size:0.9rem">
@@ -1160,6 +1161,27 @@ function nextQuestion() {
   } else {
     renderQuestion();
   }
+}
+
+function retryQuestion() {
+  // スコアや不正解リストはそのまま、入力欄だけリセット
+  answered = false;
+  const input = document.getElementById('answer-input');
+  input.value = '';
+  input.className = '';
+  input.disabled = false;
+  input.style.height = 'auto';
+
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '';
+
+  document.getElementById('btn-submit-wrap').style.display = 'block';
+  document.getElementById('btn-next-wrap').style.display = 'none';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('mic-btn').disabled = false;
+  document.getElementById('loading-wrap').style.display = 'none';
+
+  setTimeout(() => input.focus(), 100);
 }
 
 // ---- RESULT ----
