@@ -547,20 +547,24 @@
     <div class="card">
       <div class="question-label">次の日本語を英語にしてください</div>
       <div class="category-badge" id="q-category"></div>
+      <!-- 通常問題：単一表示 -->
       <div class="japanese-text" id="q-japanese"></div>
+      <!-- 会話セット：複数入力欄エリア -->
+      <div id="q-set-area"></div>
 
-      <!-- ★ textarea に変更（改行・予測変換・自動修正対応） -->
-      <textarea
-        id="answer-input"
-        placeholder="英語で入力..."
-        rows="2"
-        autocomplete="on"
-        autocorrect="on"
-        autocapitalize="sentences"
-        spellcheck="true"
-      ></textarea>
-      <!-- ★ 改行ヒント -->
-      <div class="input-hint">改行：Enterキー ／ 答え合わせ：下のボタン</div>
+      <!-- 通常問題入力欄 -->
+      <div id="single-input-wrap">
+        <textarea
+          id="answer-input"
+          placeholder="英語で入力..."
+          rows="2"
+          autocomplete="on"
+          autocorrect="on"
+          autocapitalize="sentences"
+          spellcheck="true"
+        ></textarea>
+        <div class="input-hint">答え合わせ：下のボタン</div>
+      </div>
 
       <div class="feedback" id="feedback"></div>
     </div>
@@ -877,6 +881,11 @@ function startReview() {
 }
 
 // ---- RENDER QUESTION ----
+// 会話セットかどうか判定（/区切りで2つ以上）
+function isConversationSet(q) {
+  return q.japanese.includes('/') && q.japanese.split('/').length >= 2;
+}
+
 function renderQuestion() {
   stopMic();
   answered = false;
@@ -888,25 +897,79 @@ function renderQuestion() {
   document.getElementById('progress-label').textContent = `${currentIndex + 1} / ${total}問`;
 
   document.getElementById('q-category').textContent = q.category;
-  document.getElementById('q-japanese').textContent = q.japanese;
-
-  const input = document.getElementById('answer-input');
-  input.value = '';
-  input.className = '';
-  input.disabled = false;
-  // ★ textarea の高さをリセット
-  input.style.height = 'auto';
-
   document.getElementById('feedback').className = 'feedback';
   document.getElementById('feedback').innerHTML = '';
-
   document.getElementById('btn-submit-wrap').style.display = 'block';
   document.getElementById('btn-next-wrap').style.display = 'none';
-  document.getElementById('submit-btn').disabled = false;
-  document.getElementById('mic-btn').disabled = false;
   document.getElementById('loading-wrap').style.display = 'none';
 
-  setTimeout(() => input.focus(), 100);
+  if (isConversationSet(q)) {
+    // 会話セット：複数入力欄を生成
+    document.getElementById('q-japanese').style.display = 'none';
+    document.getElementById('single-input-wrap').style.display = 'none';
+    document.getElementById('mic-btn').style.display = 'none';
+
+    const jpPhrases = q.japanese.split('/').map(s => s.trim()).filter(Boolean);
+    const enPhrases = q.english.split('/').map(s => s.trim()).filter(Boolean);
+
+    const setArea = document.getElementById('q-set-area');
+    setArea.innerHTML = jpPhrases.map((jp, i) => `
+      <div style="margin-bottom:16px">
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--text)">${escapeHtml(jp)}</div>
+        <textarea
+          class="set-input"
+          data-index="${i}"
+          data-answer="${escapeHtml(enPhrases[i] || '')}"
+          placeholder="英語で入力..."
+          rows="2"
+          autocomplete="on"
+          autocorrect="on"
+          autocapitalize="sentences"
+          spellcheck="true"
+          style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:12px;font-size:1rem;color:var(--text);background:white;resize:none;line-height:1.6;font-family:inherit;overflow-y:hidden;"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';applyAutoCorrectToEl(this)"
+        ></textarea>
+        <div class="set-feedback" data-index="${i}" style="display:none;margin-top:6px;padding:10px 12px;border-radius:10px;font-size:0.9rem;line-height:1.6"></div>
+      </div>
+    `).join('');
+
+    document.getElementById('submit-btn').disabled = false;
+    setTimeout(() => {
+      const first = setArea.querySelector('.set-input');
+      if (first) first.focus();
+    }, 100);
+
+  } else {
+    // 通常問題
+    document.getElementById('q-japanese').style.display = 'block';
+    document.getElementById('q-japanese').textContent = q.japanese;
+    document.getElementById('single-input-wrap').style.display = 'block';
+    document.getElementById('q-set-area').innerHTML = '';
+    document.getElementById('mic-btn').style.display = 'flex';
+
+    const input = document.getElementById('answer-input');
+    input.value = '';
+    input.className = '';
+    input.disabled = false;
+    input.style.height = 'auto';
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('mic-btn').disabled = false;
+
+    setTimeout(() => input.focus(), 100);
+  }
+}
+
+function applyAutoCorrectToEl(el) {
+  const val = el.value;
+  const lastChar = val[val.length - 1];
+  if (lastChar === ' ' || lastChar === '\n' || lastChar === '.' || lastChar === ',' || lastChar === '?') {
+    const fixed = applyAutoCorrect(val);
+    if (fixed !== val) {
+      const pos = el.selectionStart + (fixed.length - val.length);
+      el.value = fixed;
+      el.selectionStart = el.selectionEnd = Math.max(0, pos);
+    }
+  }
 }
 
 // ---- ★ 自動修正テーブル ----
@@ -997,44 +1060,131 @@ function cancelAnswer() {
 async function submitAnswer() {
   if (answered) return;
   const q = quizList[currentIndex];
-  const input = document.getElementById('answer-input');
-  const userAnswer = input.value.trim();
-  if (!userAnswer) return;
 
-  stopMic();
-  answered = true;
-  input.disabled = true;
-  document.getElementById('submit-btn').disabled = true;
-  document.getElementById('mic-btn').disabled = true;
-  document.getElementById('loading-wrap').style.display = 'flex';
+  if (isConversationSet(q)) {
+    // 会話セット採点
+    const inputs = document.querySelectorAll('.set-input');
+    for (const inp of inputs) {
+      if (!inp.value.trim()) { alert('全てのフレーズを入力してください。'); return; }
+    }
 
-  abortController = new AbortController();
+    answered = true;
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('loading-wrap').style.display = 'flex';
+    abortController = new AbortController();
 
-  try {
-    const result = await gradeWithAI(q.japanese, q.english, userAnswer, abortController.signal);
-    abortController = null;
-    showAIFeedback(result, q, input);
-    document.getElementById('loading-wrap').style.display = 'none';
-    document.getElementById('btn-next-wrap').style.display = 'block';
-  } catch (err) {
-    abortController = null;
-    document.getElementById('loading-wrap').style.display = 'none';
-    // キャンセルの場合は何もしない（cancelAnswer()側で処理済み）
-    if (err.name === 'AbortError') return;
+    const jpPhrases = q.japanese.split('/').map(s => s.trim()).filter(Boolean);
+    const enPhrases = q.english.split('/').map(s => s.trim()).filter(Boolean);
 
-    answered = false;
-    input.disabled = false;
-    document.getElementById('submit-btn').disabled = false;
-    document.getElementById('mic-btn').disabled = false;
+    try {
+      // 全フレーズを並列採点
+      const results = await Promise.all(
+        Array.from(inputs).map((inp, i) =>
+          gradeWithAI(jpPhrases[i], enPhrases[i] || '', inp.value.trim(), abortController.signal)
+        )
+      );
+      abortController = null;
+      document.getElementById('loading-wrap').style.display = 'none';
 
-    const fb = document.getElementById('feedback');
-    fb.className = 'feedback incorrect';
-    fb.innerHTML = `⚠️ 採点エラー：${escapeHtml(err.message)}<br><span style="font-size:0.85rem;color:var(--muted)">コピペ採点に切り替えます...</span>`;
-    setTimeout(() => {
-      fb.className = 'feedback';
-      fb.innerHTML = '';
-      showGradeModal(q, userAnswer);
-    }, 2000);
+      let allCorrect = true;
+      results.forEach((result, i) => {
+        const inp = inputs[i];
+        const fb = document.querySelectorAll('.set-feedback')[i];
+        inp.disabled = true;
+
+        if (result.result === 'CORRECT') {
+          inp.style.borderColor = 'var(--success)';
+          inp.style.background = 'var(--success-bg)';
+          fb.style.display = 'block';
+          fb.style.background = 'var(--success-bg)';
+          fb.style.border = '1.5px solid #6EE7B7';
+          fb.style.color = 'var(--success)';
+          fb.innerHTML = '✅ 正解！';
+        } else if (result.result === 'NATURAL') {
+          inp.style.borderColor = 'var(--success)';
+          inp.style.background = 'var(--success-bg)';
+          fb.style.display = 'block';
+          fb.style.background = '#FFFBEB';
+          fb.style.border = '1.5px solid #FCD34D';
+          fb.style.color = '#92400E';
+          const nuanceHtml = result.nuance ? `<div style="margin-top:4px">👤 ${escapeHtml(result.nuance)}</div>` : '';
+          const suggestionHtml = result.suggestion ? `<div style="margin-top:4px;font-weight:700">✨ ${escapeHtml(result.suggestion)}</div>` : '';
+          fb.innerHTML = `💡 ほぼ正解！${nuanceHtml}${suggestionHtml}`;
+        } else {
+          allCorrect = false;
+          inp.style.borderColor = 'var(--error)';
+          inp.style.background = 'var(--error-bg)';
+          fb.style.display = 'block';
+          fb.style.background = 'var(--error-bg)';
+          fb.style.border = '1.5px solid #FCA5A5';
+          fb.style.color = 'var(--error)';
+          const s = result.suggestion || enPhrases[i];
+          fb.innerHTML = `❌ 不正解<div style="margin-top:4px;font-weight:700;color:var(--text)">定番表現：${escapeHtml(s)}</div>`;
+        }
+      });
+
+      // 全体フィードバック
+      const fb = document.getElementById('feedback');
+      if (allCorrect) {
+        score++;
+        fb.className = 'feedback correct';
+        fb.innerHTML = '✅ 全問正解！素晴らしい！';
+      } else {
+        fb.className = 'feedback incorrect';
+        fb.innerHTML = '❌ 不正解（1つ以上間違いがあります）';
+        incorrectPhrases.push(q);
+      }
+      document.getElementById('btn-next-wrap').style.display = 'block';
+
+    } catch (err) {
+      abortController = null;
+      document.getElementById('loading-wrap').style.display = 'none';
+      if (err.name === 'AbortError') return;
+      answered = false;
+      document.getElementById('submit-btn').disabled = false;
+      alert('採点エラー：' + err.message);
+    }
+
+  } else {
+    // 通常問題採点
+    const input = document.getElementById('answer-input');
+    const userAnswer = input.value.trim();
+    if (!userAnswer) return;
+
+    stopMic();
+    answered = true;
+    input.disabled = true;
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('mic-btn').disabled = true;
+    document.getElementById('loading-wrap').style.display = 'flex';
+
+    abortController = new AbortController();
+
+    try {
+      const result = await gradeWithAI(q.japanese, q.english, userAnswer, abortController.signal);
+      abortController = null;
+      showAIFeedback(result, q, input);
+      document.getElementById('loading-wrap').style.display = 'none';
+      document.getElementById('btn-next-wrap').style.display = 'block';
+    } catch (err) {
+      abortController = null;
+      document.getElementById('loading-wrap').style.display = 'none';
+      if (err.name === 'AbortError') return;
+
+      answered = false;
+      input.disabled = false;
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('mic-btn').disabled = false;
+
+      const fb = document.getElementById('feedback');
+      fb.className = 'feedback incorrect';
+      fb.innerHTML = `⚠️ 採点エラー：${escapeHtml(err.message)}<br><span style="font-size:0.85rem;color:var(--muted)">コピペ採点に切り替えます...</span>`;
+      setTimeout(() => {
+        fb.className = 'feedback';
+        fb.innerHTML = '';
+        showGradeModal(q, userAnswer);
+      }, 2000);
+    }
   }
 }
 
@@ -1164,24 +1314,39 @@ function nextQuestion() {
 }
 
 function retryQuestion() {
-  // スコアや不正解リストはそのまま、入力欄だけリセット
   answered = false;
-  const input = document.getElementById('answer-input');
-  input.value = '';
-  input.className = '';
-  input.disabled = false;
-  input.style.height = 'auto';
-
   document.getElementById('feedback').className = 'feedback';
   document.getElementById('feedback').innerHTML = '';
-
   document.getElementById('btn-submit-wrap').style.display = 'block';
   document.getElementById('btn-next-wrap').style.display = 'none';
   document.getElementById('submit-btn').disabled = false;
-  document.getElementById('mic-btn').disabled = false;
   document.getElementById('loading-wrap').style.display = 'none';
 
-  setTimeout(() => input.focus(), 100);
+  const q = quizList[currentIndex];
+  if (isConversationSet(q)) {
+    // 会話セット：全入力欄をリセット
+    document.querySelectorAll('.set-input').forEach(inp => {
+      inp.value = '';
+      inp.disabled = false;
+      inp.style.borderColor = '';
+      inp.style.background = '';
+      inp.style.height = 'auto';
+    });
+    document.querySelectorAll('.set-feedback').forEach(fb => {
+      fb.style.display = 'none';
+      fb.innerHTML = '';
+    });
+    const first = document.querySelector('.set-input');
+    if (first) setTimeout(() => first.focus(), 100);
+  } else {
+    const input = document.getElementById('answer-input');
+    input.value = '';
+    input.className = '';
+    input.disabled = false;
+    input.style.height = 'auto';
+    document.getElementById('mic-btn').disabled = false;
+    setTimeout(() => input.focus(), 100);
+  }
 }
 
 // ---- RESULT ----
