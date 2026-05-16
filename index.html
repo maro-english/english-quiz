@@ -576,6 +576,7 @@
       </div>
       <div style="text-align:center;min-height:24px;margin-top:6px">
         <span class="mic-label" id="mic-label" style="display:none">● REC</span>
+        <button id="mic-clear-btn" onclick="clearMicInput()" style="display:none;margin-left:8px;padding:4px 12px;border-radius:8px;border:1.5px solid var(--error);background:white;color:var(--error);font-size:0.82rem;font-weight:700;cursor:pointer;">✕ クリア</button>
         <div class="loading-wrap" id="loading-wrap" style="display:none">
           <div class="spinner"></div><span>AIが採点中...</span>
           <button class="btn btn-secondary btn-sm" onclick="cancelAnswer()" style="margin-left:12px;width:auto;padding:6px 14px;font-size:0.85rem">キャンセル</button>
@@ -1508,6 +1509,7 @@ const hasSpeech = !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
 function stopMic() {
   if (recognition && isListening) {
+    isListening = false; // ★ 先にフラグを落としてonendで再起動しないように
     try { recognition.stop(); } catch (_) {}
   }
 }
@@ -1525,43 +1527,85 @@ function toggleMic() {
   }
 }
 
+// ★ 日本語フィラー・言い直し語を除去して英語だけ残す
+function cleanTranscript(text) {
+  const fillers = [
+    'あーー','あー','あ','えーっと','えーと','えっと','うーん','うん',
+    'あっ違う','あ違う','違う違う','あっ','んー','まあ','えー','えっ',
+    'うーーん','んんー','そのー','なんか','あのー','あの',
+  ];
+  let result = text;
+  for (const f of fillers) {
+    result = result.replace(new RegExp(f, 'g'), '');
+  }
+  // 英語以外の文字（日本語・記号）を除去
+  result = result.replace(/[^ -ａ-ｚＡ-Ｚ\s'".!?,]/g, '');
+  return result.replace(/\s+/g, ' ').trim();
+}
+
+let micAccumulated = ''; // continuous中に蓄積されたfinalテキスト
+
 function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  micAccumulated = '';
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.continuous = false;
+  recognition.continuous = true;   // ★ 自動停止しない
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
     isListening = true;
     setMicBtn(true);
+    const clearBtn = document.getElementById('mic-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'inline-block';
   };
 
   recognition.onresult = (e) => {
-    let interim = '', final = '';
+    let interimText = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) final += t;
-      else interim += t;
+      if (e.results[i].isFinal) {
+        // finalは蓄積（フィラー除去してから追加）
+        const cleaned = cleanTranscript(t);
+        if (cleaned) micAccumulated += (micAccumulated ? ' ' : '') + cleaned;
+      } else {
+        interimText += t;
+      }
     }
     const input = document.getElementById('answer-input');
-    if (final) input.value = final;
-    else if (interim) input.value = interim;
-    // 音声入力後も自動伸縮
+    // 表示：蓄積済み + 現在のinterim（フィラー除去）
+    const interimCleaned = cleanTranscript(interimText);
+    const display = micAccumulated + (interimCleaned ? (micAccumulated ? ' ' : '') + interimCleaned : '');
+    input.value = display;
     input.style.height = 'auto';
     input.style.height = input.scrollHeight + 'px';
   };
 
   recognition.onerror = (e) => {
+    // continuousモードではno-speechは無視して継続
+    if (e.error === 'no-speech') return;
     isListening = false;
     setMicBtn(false);
+    const clearBtn = document.getElementById('mic-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
   };
 
   recognition.onend = () => {
-    isListening = false;
-    setMicBtn(false);
-    recognition = null;
+    // ★ ユーザーが停止ボタンを押した場合のみ止まる
+    if (isListening) {
+      // まだ listening フラグが立っている = 自動停止 → 再起動
+      try { recognition.start(); } catch(_) {
+        isListening = false;
+        setMicBtn(false);
+        const clearBtn = document.getElementById('mic-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+      }
+    } else {
+      recognition = null;
+      const clearBtn = document.getElementById('mic-clear-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
   };
 
   try {
@@ -1572,15 +1616,26 @@ function startListening() {
   }
 }
 
+// ★ クリアボタン
+function clearMicInput() {
+  micAccumulated = '';
+  const input = document.getElementById('answer-input');
+  input.value = '';
+  input.style.height = 'auto';
+  input.focus();
+}
+
 function setMicBtn(listening) {
   const btn = document.getElementById('mic-btn');
   const label = document.getElementById('mic-label');
+  const clearBtn = document.getElementById('mic-clear-btn');
   if (!btn) return;
   if (!hasSpeech) { btn.classList.add('unsupported'); return; }
   btn.classList.toggle('listening', listening);
   btn.textContent = listening ? '⏹' : '🎤';
   btn.title = listening ? '録音停止' : '音声入力';
   if (label) label.style.display = listening ? 'inline-block' : 'none';
+  if (clearBtn) clearBtn.style.display = listening ? 'inline-block' : 'none';
 }
 
 function setMicStatus(msg, active) {}
