@@ -1205,28 +1205,77 @@ async function gradeWithAI(japanese, modelAnswer, userAnswer, signal) {
   return await res.json();
 }
 
+// ---- ★ 音声再生 ----
+let ttsVoice = null;
+
+function initTTS() {
+  // 女性英語音声を探す（優先順位あり）
+  const tryLoad = () => {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return;
+    // 優先：Samantha（macOS/iOS）、次にen-US女性
+    ttsVoice =
+      voices.find(v => v.name === 'Samantha') ||
+      voices.find(v => v.lang === 'en-US' && v.name.match(/female|woman|samantha|karen|victoria|zira/i)) ||
+      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => v.lang.startsWith('en'));
+  };
+  tryLoad();
+  window.speechSynthesis.onvoiceschanged = tryLoad;
+}
+
+function speakTexts(texts) {
+  window.speechSynthesis.cancel();
+  const queue = texts.filter(Boolean);
+  if (!queue.length) return;
+
+  const speakNext = (i) => {
+    if (i >= queue.length) return;
+    const utt = new SpeechSynthesisUtterance(queue[i]);
+    utt.lang = 'en-US';
+    utt.rate = 0.9;
+    utt.pitch = 1.1;
+    if (ttsVoice) utt.voice = ttsVoice;
+    utt.onend = () => speakNext(i + 1);
+    window.speechSynthesis.speak(utt);
+  };
+  speakNext(0);
+}
+
+function playBtn(texts, color) {
+  const encoded = encodeURIComponent(JSON.stringify(texts));
+  return `<button onclick="speakTexts(JSON.parse(decodeURIComponent('${encoded}')))"
+    style="background:none;border:none;cursor:pointer;font-size:1.2rem;vertical-align:middle;padding:2px 4px;opacity:0.8"
+    title="発音を聞く">🔊</button>`;
+}
+
 function showAIFeedback(result, q, input) {
   const fb = document.getElementById('feedback');
   if (result.result === 'CORRECT') {
     score++;
     input.className = 'correct';
     fb.className = 'feedback correct';
-    fb.innerHTML = '✅ 正解！';
+    const userAnswer = input.value.trim();
+    fb.innerHTML = `✅ 正解！ ${playBtn([userAnswer], 'success')}`;
   } else if (result.result === 'NATURAL') {
     score++;
     input.className = 'correct';
     fb.className = 'feedback natural';
-    // ★ nuance（あなたの答えのニュアンス説明）も表示
     const nuanceHtml = result.nuance
       ? `<div style="margin-top:8px;font-size:0.9rem;color:#78350F;line-height:1.6">👤 あなたの答えだと：${escapeHtml(result.nuance)}</div>` : '';
-    const suggestionHtml = result.suggestion
-      ? `<div class="suggestion">✨ より自然な表現：${escapeHtml(result.suggestion)}</div>` : '';
+    // suggestionを/で分割して複数対応
+    const suggestions = result.suggestion
+      ? result.suggestion.split('/').map(s => s.trim()).filter(Boolean) : [];
+    const suggestionHtml = suggestions.length
+      ? `<div class="suggestion">✨ より自然な表現：${suggestions.map(s => escapeHtml(s)).join(' / ')} ${playBtn(suggestions, 'natural')}</div>` : '';
     fb.innerHTML = `💡 ほぼ正解！意味はOKです。${nuanceHtml}${suggestionHtml}`;
   } else {
     input.className = 'incorrect';
     fb.className = 'feedback incorrect';
     const s = result.suggestion || q.english;
-    fb.innerHTML = `❌ 不正解<div class="suggestion">定番表現：${escapeHtml(s)}</div>`;
+    // /区切りで複数表現に対応
+    const phrases = s.split('/').map(p => p.trim()).filter(Boolean);
+    fb.innerHTML = `❌ 不正解<div class="suggestion">定番表現：${phrases.map(p => escapeHtml(p)).join(' / ')} ${playBtn(phrases, 'error')}</div>`;
     incorrectPhrases.push(q);
   }
 }
@@ -1638,6 +1687,7 @@ function setMicStatus(msg, active) {}
 
 // ---- BOOT ----
 init();
+initTTS();
 if (!hasSpeech) {
   const btn = document.getElementById('mic-btn');
   if (btn) btn.classList.add('unsupported');
