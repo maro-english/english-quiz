@@ -1508,10 +1508,13 @@ let isListening = false;
 const hasSpeech = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
 function stopMic() {
-  if (recognition && isListening) {
-    isListening = false; // ★ 先にフラグを落としてonendで再起動しないように
+  isListening = false;
+  if (micRestartTimer) { clearTimeout(micRestartTimer); micRestartTimer = null; }
+  if (recognition) {
     try { recognition.stop(); } catch (_) {}
+    recognition = null;
   }
+  setMicBtn(false);
 }
 
 function toggleMic() {
@@ -1523,42 +1526,36 @@ function toggleMic() {
   if (isListening) {
     stopMic();
   } else {
+    micAccumulated = '';
+    isListening = true;
     startListening();
   }
 }
 
-// ★ 日本語フィラー・言い直し語を除去して英語だけ残す
+// ★ 日本語フィラー除去
 function cleanTranscript(text) {
-  const fillers = [
-    'あーー','あー','あ','えーっと','えーと','えっと','うーん','うん',
-    'あっ違う','あ違う','違う違う','あっ','んー','まあ','えー','えっ',
-    'うーーん','んんー','そのー','なんか','あのー','あの',
-  ];
+  const fillers = ['あーー','あー','あ','えーっと','えーと','えっと','うーん','うん',
+    'あっ違う','あ違う','違う違う','あっ','んー','まあ','えー','えっ','うーーん','んんー','そのー','なんか','あのー','あの'];
   let result = text;
-  for (const f of fillers) {
-    result = result.replace(new RegExp(f, 'g'), '');
-  }
-  // 英語以外の文字（日本語・記号）を除去
-  result = result.replace(/[^ -ａ-ｚＡ-Ｚ\s'".!?,]/g, '');
+  for (const f of fillers) result = result.replace(new RegExp(f, 'g'), '');
+  // 日本語文字を除去
+  result = result.replace(/[　-鿿豈-﫿]/g, '');
   return result.replace(/\s+/g, ' ').trim();
 }
 
-let micAccumulated = ''; // continuous中に蓄積されたfinalテキスト
+let micAccumulated = '';
+let micRestartTimer = null;
 
 function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  micAccumulated = '';
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.continuous = true;   // ★ 自動停止しない
+  recognition.continuous = false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
-    isListening = true;
     setMicBtn(true);
-    const clearBtn = document.getElementById('mic-clear-btn');
-    if (clearBtn) clearBtn.style.display = 'inline-block';
   };
 
   recognition.onresult = (e) => {
@@ -1566,7 +1563,6 @@ function startListening() {
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
       if (e.results[i].isFinal) {
-        // finalは蓄積（フィラー除去してから追加）
         const cleaned = cleanTranscript(t);
         if (cleaned) micAccumulated += (micAccumulated ? ' ' : '') + cleaned;
       } else {
@@ -1574,7 +1570,6 @@ function startListening() {
       }
     }
     const input = document.getElementById('answer-input');
-    // 表示：蓄積済み + 現在のinterim（フィラー除去）
     const interimCleaned = cleanTranscript(interimText);
     const display = micAccumulated + (interimCleaned ? (micAccumulated ? ' ' : '') + interimCleaned : '');
     input.value = display;
@@ -1583,25 +1578,19 @@ function startListening() {
   };
 
   recognition.onerror = (e) => {
-    // continuousモードではno-speechは無視して継続
-    if (e.error === 'no-speech') return;
+    if (e.error === 'no-speech' && isListening) {
+      // no-speechは無視して再起動
+      scheduleRestart();
+      return;
+    }
+    if (!isListening) return;
     isListening = false;
     setMicBtn(false);
-    const clearBtn = document.getElementById('mic-clear-btn');
-    if (clearBtn) clearBtn.style.display = 'none';
   };
 
   recognition.onend = () => {
     if (isListening) {
-      // 自動停止 → 少し待ってから新しいインスタンスで再起動
-      setTimeout(() => {
-        if (isListening) startListening();
-      }, 300);
-    } else {
-      recognition = null;
-      setMicBtn(false);
-      const clearBtn = document.getElementById('mic-clear-btn');
-      if (clearBtn) clearBtn.style.display = 'none';
+      scheduleRestart();
     }
   };
 
@@ -1611,6 +1600,16 @@ function startListening() {
     isListening = false;
     setMicBtn(false);
   }
+}
+
+function scheduleRestart() {
+  if (micRestartTimer) return;
+  micRestartTimer = setTimeout(() => {
+    micRestartTimer = null;
+    if (!isListening) return;
+    recognition = null;
+    startListening();
+  }, 400);
 }
 
 // ★ クリアボタン
