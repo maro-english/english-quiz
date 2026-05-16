@@ -1592,17 +1592,14 @@ function startListening() {
   };
 
   recognition.onend = () => {
-    // ★ ユーザーが停止ボタンを押した場合のみ止まる
     if (isListening) {
-      // まだ listening フラグが立っている = 自動停止 → 再起動
-      try { recognition.start(); } catch(_) {
-        isListening = false;
-        setMicBtn(false);
-        const clearBtn = document.getElementById('mic-clear-btn');
-        if (clearBtn) clearBtn.style.display = 'none';
-      }
+      // 自動停止 → 少し待ってから新しいインスタンスで再起動
+      setTimeout(() => {
+        if (isListening) startListening();
+      }, 300);
     } else {
       recognition = null;
+      setMicBtn(false);
       const clearBtn = document.getElementById('mic-clear-btn');
       if (clearBtn) clearBtn.style.display = 'none';
     }
