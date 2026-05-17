@@ -1225,21 +1225,40 @@ function initTTS() {
 }
 
 function speakTexts(texts) {
+  // iOSのSafariはspeechSynthesisが途中で止まるバグがある
+  // cancel→少し待ってからspeakすることで回避
   window.speechSynthesis.cancel();
   const queue = texts.filter(Boolean);
   if (!queue.length) return;
 
+  // iOSバグ対策：resumeを定期的に呼ぶ
+  let resumeTimer = null;
+  const keepAlive = () => {
+    window.speechSynthesis.resume();
+    resumeTimer = setTimeout(keepAlive, 5000);
+  };
+
   const speakNext = (i) => {
-    if (i >= queue.length) return;
+    if (i >= queue.length) {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      return;
+    }
     const utt = new SpeechSynthesisUtterance(queue[i]);
     utt.lang = 'en-US';
     utt.rate = 0.9;
     utt.pitch = 1.1;
     if (ttsVoice) utt.voice = ttsVoice;
     utt.onend = () => speakNext(i + 1);
+    utt.onerror = () => {
+      if (resumeTimer) clearTimeout(resumeTimer);
+    };
     window.speechSynthesis.speak(utt);
   };
-  speakNext(0);
+
+  setTimeout(() => {
+    keepAlive();
+    speakNext(0);
+  }, 100);
 }
 
 function playBtn(texts, color) {
